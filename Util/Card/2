@@ -1,0 +1,60 @@
+module Card.Unary where
+
+
+instance Card D0 
+
+data D0  = D0 
+data D1  = D1 
+data D2  = D2 
+data D3  = D3 
+data D4  = D4 
+data D5  = D5 
+data D6  = D6 
+data D7  = D7 
+data D8  = D8 
+data D9  = D9 
+
+class Digit d where
+	toInt :: d -> Int
+instance Digit D0 where toInt _ = 0
+instance Digit D1 where toInt _ = 1
+instance Digit D2 where toInt _ = 2
+instance Digit D3 where toInt _ = 3
+instance Digit D4 where toInt _ = 4
+instance Digit D5 where toInt _ = 5
+instance Digit D6 where toInt _ = 6
+instance Digit D7 where toInt _ = 7
+instance Digit D8 where toInt _ = 8
+instance Digit D9 where toInt _ = 9
+
+class (Digit d) => NonZeroDigit d where
+
+instance NonZeroDigit D1 
+instance NonZeroDigit D2 
+instance NonZeroDigit D3
+instance NonZeroDigit D4
+instance NonZeroDigit D5 
+instance NonZeroDigit D6
+instance NonZeroDigit D7
+instance NonZeroDigit D8
+instance NonZeroDigit D9
+
+
+{--
+data Zero = Zero
+data Succ n = Succ n
+
+instance Show Zero where
+	show n = show $ toInt n
+instance (Card n ) => Show (Succ n) where
+	show (Succ n) = show $ toInt (Succ n)
+instance Card Zero where
+	toInt n = 0
+instance (Card n) => Card (Succ n) where
+	toInt (Succ n) = succ (toInt n)
+
+class Card c where
+	toInt :: c -> Int
+	predCard :: Succ c -> c
+	predCard = undefined
+--}
