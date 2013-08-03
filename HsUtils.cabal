@@ -44,11 +44,11 @@ cabal-version:       >=1.8
 
 library
   -- Modules exported by the library.
-  exposed-modules:     Util.CountingList, Util.Info, Util.Card.Unary, Util.Card.Card, Math, Math.Tree, Math.MatrixTS, Text, Text.PrettyShow
+  exposed-modules:     Util.CountingList, Util.Info, Util.Card.Unary, Util.Card.Card, Math, Math.Tree, Math.Matrix, Math.MatrixTS, Text, Text.PrettyShow
   
   -- Modules included in this library but not exported.
   -- other-modules:       
   
   -- Other library packages from which modules are imported.
-  build-depends:       array -any, base ==4.5.*, syb ==0.3.*, mtl ==2.1.*
+  build-depends:       array -any, base >= 4.5.0.0, syb >=0.3.0.0, mtl >=2.1.0.0
   

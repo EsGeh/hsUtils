@@ -1,3 +1,4 @@
+-- | This module exports a matrix of static size. If you know the size at compile time, use this module, it enables the type checker to exclude many errors at compile time. If the size is not known at compile time you should use the module 'Math.Matrix'
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Math.MatrixTS(
 	Matrix(),
