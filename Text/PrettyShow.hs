@@ -1,5 +1,5 @@
 module Text.PrettyShow(
-	Area,Size,Pos,size,pos
+	Area,Size,Pos
 ) where
 
 import Vector2D
@@ -8,6 +8,8 @@ import Data.Maybe
 import Data.Monoid
 import Data.Ratio
 import Control.Monad.State
+import Prelude hiding (lines)
+import qualified Prelude as P
 
 
 {-type Text = String
@@ -22,16 +24,15 @@ posY = vecY
 sizeX = vecX
 sizeY = vecY
 
-
-
 type Area a = (Pos a, Size a)
 size = snd
 pos = fst
 
 -- |things that can be concatenated in two ways. (|||) is for horizontal, (===) for vertical concatenation
 class Monoid2D a where
-	(|||) :: a -> a -> a
-	(===) :: a -> a -> a
+	(|||) :: a -> a -> a -- |concatenate horizontal ( "Block | Block")
+	(===) :: a -> a -> a -- |concatenate vertically ( "Block / Block")
+	msize :: a -> Size Int
 
 -- |this type represents a method (let us call it a function) to create some data of type t, that fills a "frame" of some given size
 data RenderMethod t = RenderMeth {
@@ -41,6 +42,21 @@ data RenderMethod t = RenderMeth {
 -- |if there are 2 functions that create a 'Monoid2D' of the same type, the results can be combined generically
 (^===) :: (Monoid2D repr) => RenderMethod repr -> RenderMethod repr -> RenderMethod repr
 l ^=== r = lr 0.5 l r
+
+type SpaceDivide = Size Int -> (Size Int, Size Int)
+
+
+lrCombinator :: (Monoid2D repr) => SpaceDivide -> (repr -> repr -> repr) -> RenderMethod repr -> RenderMethod repr -> RenderMethod repr
+lrCombinator spacing comb l r = let
+	lf = runRenderMeth l
+	rf = runRenderMeth r
+	in
+	RenderMeth $ \size ->
+		let
+			(sizeL,sizeR) = spacing size
+		in
+			lf (sizeL) `comb` rf (sizeR)
+
 
 lr :: (Monoid2D repr) => Rational -> RenderMethod repr -> RenderMethod repr -> RenderMethod repr
 lr ratio l r = let
@@ -83,9 +99,7 @@ forceWithEllipse str ell = Block $ \size -> (textBlockTrunc (size-length ell) st
 test = lr 0.2 (force "Hallo\nWelt") (justBlock "bli\nbla\nblubb")
 
 
---Block num t -> Block num t -> Block num t
 infixl ^===
-
 
 -- |represents text in a way that also encodes how it is divided into lines
 -- imagine it as representing the text as a list of lines
@@ -95,14 +109,17 @@ data TextBlock = TextBlock {
 instance Monoid2D TextBlock where
 	l ||| r = lrText l r
 	u === d = udText u d
+	msize text = case (lines text) of
+		[] -> (0,0)
+		list -> (length (head list), length list)
 instance Show TextBlock where
 	show = fromTextBlock -- (TextBlock lines) = fromTextBlock lines
 
-textBlock = normalize . TextBlock . Prelude.lines
-textBlockTruncWE size ellAtLineEnding ellAtTextEnding str = textMap (linesToSizeWE size ellAtLineEnding ellAtTextEnding) $ textBlock str
-textBlockTrunc size str = textMap (linesToSize size) $ textBlock str
+textBlock = normalize . TextBlock . P.lines
+textBlockTruncWE size ellAtLineEnding ellAtTextEnding str = textMap (linesSetSizeWE size ellAtLineEnding ellAtTextEnding) $ textBlock str
+textBlockTrunc size str = textMap (linesSetSize size) $ textBlock str
 
-textBlockAutoNewLineWE size ellAtLineEnding ellAtTextEnding str = textMap (linesToSizeWE size ellAtLineEnding ellAtTextEnding . textAutoNewLine size "" ) $ textBlock str
+textBlockAutoNewLineWE size ellAtLineEnding ellAtTextEnding str = textMap (linesSetSizeWE size ellAtLineEnding ellAtTextEnding . textAutoNewLine size "" ) $ textBlock str
 --textBlock size str = autoNewLine size 
 fromTextBlock (TextBlock lines) = unlines $ linesHomWidth lines
 
@@ -111,8 +128,8 @@ lrText :: TextBlock -> TextBlock -> TextBlock
 lrText (TextBlock lLines) (TextBlock rLines) = TextBlock $
 	zipWith (++) (linesHomWidth lSameHeight) rSameHeight
 	where
-		lSameHeight = linesSameHeight maxHeight lLines
-		rSameHeight = linesSameHeight maxHeight rLines
+		lSameHeight = linesSetHeight maxHeight lLines
+		rSameHeight = linesSetHeight maxHeight rLines
 		maxHeight = max (length lLines) (length rLines)
 udText :: TextBlock -> TextBlock -> TextBlock
 udText (TextBlock lLines) (TextBlock rLines) = TextBlock $ linesHomWidth $
@@ -123,10 +140,8 @@ textMap f (TextBlock lines) = TextBlock $ f lines
 
 -- lists of line: 
 linesHomWidth :: [String] -> [String]
-linesHomWidth lines = linesSameWidth (maximum $ map length lines) lines
+linesHomWidth lines = linesSetWidth (maximum $ map length lines) lines
 
-linesToSize size = linesSameHeight (vecY size) . linesSameWidth (vecX size)
-linesToSizeWE size ellAtLineEnding ellAtTextEnding = linesSameHeightWE (vecY size) ellAtTextEnding . linesSameWidthWE (vecX size) ellAtLineEnding
 
 textAutoNewLine size ell = divNice . join . map words -- . Prelude.lines
 	where
@@ -144,6 +159,34 @@ test' = fillLine (10,10)
 param = ["Hallo","Welt","Bli","Bla","Blubb"]
 
 
+
+-- the suffix "WE" is for "with ellipse"
+
+linesSetSize size = linesSetHeight (vecY size) . linesSetWidth (vecX size)
+linesSetSizeWE size ellAtLineEnding ellAtTextEnding = linesSetHeightWE (vecY size) ellAtTextEnding . linesSetWidthWE (vecX size) ellAtLineEnding
+
+linesSetWidthWE width ell = map manipulateLine
+	where
+		manipulateLine line = if length line <= width
+			then take width $ line ++ (repeat ' ')
+			else (take (width-length ell) line) ++ ell
+
+linesSetHeightWE height ell lines =
+	if length lines <= height
+	then linesSetHeight height lines
+	else take (height-1) (linesSetHeight height lines) ++ [ell]
+
+linesSetHeight :: Int -> [String] -> [String]
+linesSetHeight height lines' = take height $ lines' ++ (repeat "")
+
+linesSetWidth :: Int -> [String] -> [String]
+linesSetWidth width = map fillWithSpaces
+	where
+		fillWithSpaces line = take width $ line ++  (repeat ' ')
+
+
+-- internal helper functions:
+
 -- remaining -> State( \(pos,yetParsed) -> (remaining, (pos,yetParsed)) )
 fillLine :: Size Int -> [String] -> State (Pos Int, [String]) [String]
 fillLine size (nextWord:remainingWords) = state $ \(pos, yetParsed') ->
@@ -158,25 +201,6 @@ fillLine size (nextWord:remainingWords) = state $ \(pos, yetParsed') ->
 		else ( remainingWords,
 			((length nextWord, vecY pos +1 ), yetParsed ++ [nextWord]) )
 fillLine size [] = state $ \(pos, yetParsed) -> ([], (pos,yetParsed))
-
-linesSameWidthWE width ell = map manipulateLine
-	where
-		manipulateLine line = if length line <= width
-			then take width $ line ++ (repeat ' ')
-			else (take (width-length ell) line) ++ ell
-
-linesSameHeightWE height ell lines =
-	if length lines <= height
-	then linesSameHeight height lines
-	else take (height-1) (linesSameHeight height lines) ++ [ell]
-
-linesSameHeight :: Int -> [String] -> [String]
-linesSameHeight height lines' = take height $ lines' ++ (repeat "")
-
-linesSameWidth :: Int -> [String] -> [String]
-linesSameWidth width = map fillWithSpaces
-	where
-		fillWithSpaces line = take width $ line ++  (repeat ' ')
 
 --
 {-showContainer borderL borderR tileL tileR orient separator elemLenMin minTotalLength c = fst . fromJust $ Fold.foldl conc Nothing $ fmap Just strings
