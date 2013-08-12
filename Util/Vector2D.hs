@@ -1,4 +1,4 @@
-module Vector2D where
+module Util.Vector2D where
 
 type Vec a = (a,a)
 vecX = fst
