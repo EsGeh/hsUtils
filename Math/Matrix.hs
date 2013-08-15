@@ -138,6 +138,17 @@ mGetWidth = vecX .mGetSize
 mGet :: MatrIndex -> Matrix t -> t
 mGet index (M array) = array ! index
 
+mGetSub (pos,size) matr = m size (\index -> mGet (index |+| pos) matr)
+mGetRow indexRow matr = do
+	indexCol <- mGetAllIndexCol matr
+	let index = (indexRow,indexCol)
+	return $ mGet index matr
+mGetCol indexCol matr = do
+	indexRow <- mGetAllIndexRow matr
+	let index = (indexRow,indexCol)
+	return $ mGet index matr
+
+
 --mGetLines (M lines) = lines
 
 -- |returns an element, packed in the 'WithOriginMatr' Monad
@@ -154,7 +165,6 @@ mGetAllIndexRow matr = [0..(mGetHeight matr -1)]
 mGetAllIndexCol matr = [0..(mGetWidth matr -1)]
 mGetAllIndex matr = [(row,col) | row <- mGetAllIndexRow matr, col <- mGetAllIndexCol matr ]
 
-mGetSub (pos,size) matr = m size (\index -> mGet (index |+| pos) matr)
 
 -- |set the element at a specific index inside a matrix
 mSet :: MatrIndex -> t -> Matrix t -> Matrix t
