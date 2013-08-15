@@ -1,7 +1,15 @@
-module Text.PrettyShow where {-(
-	Monoid2D,
-	Area,Size,Pos
-) where-}
+module Text.PrettyShow (
+	-- * data types and type classes
+	Monoid2D(..),
+	RenderMethod(..),
+	SpaceDivide,
+	Area,Size,Pos,
+	-- * render function combinators
+	lr, ud,
+	vertical, horizontal,
+	-- * space division functions
+	horiSpaceDiv, vertSpaceDiv
+) where
 
 import Util.Vector2D
 
@@ -48,10 +56,15 @@ l ^=== r = lr 0.5 l r-}
 
 type SpaceDivide = Size Int -> (Size Int, Size Int)
 
-spaceDiv ratio size = (sizeL,sizeR)
+horiSpaceDiv ratio size = (sizeL,sizeR)
 	where
 		sizeL = vecMap ceiling $ vecMap fromIntegral size |*| (ratio,1)
 		sizeR = size |-| (vecX sizeL,0)
+vertSpaceDiv ratio size = (sizeU,sizeD)
+	where
+		sizeU = vecMap ceiling $ vecMap fromIntegral size |*| (1,ratio)
+		sizeD = size |-| (0,vecY sizeU)
+
 
 horizontal :: (Monoid2D repr) => [RenderMethod src repr] -> RenderMethod [src] repr
 horizontal renderList = case renderList of
@@ -91,6 +104,16 @@ lr spacing l r = let
 			(sizeL,sizeR) = spacing size
 		in
 			lf sizeL lsrc ||| rf sizeR rsrc
+
+ud :: (Monoid2D repr) => SpaceDivide -> RenderMethod src repr -> RenderMethod src repr -> RenderMethod (src,src) repr
+ud spacing u d = let
+	(uf,df) = (runRenderMeth u, runRenderMeth d)
+	in
+	RenderMeth $ \size (usrc,dsrc) ->
+		let
+			(sizeU,sizeD) = spacing size
+		in
+			uf sizeU usrc === df sizeD dsrc
 
 
 {-lr :: (Monoid2D repr) => Rational -> RenderMethod src repr -> RenderMethod src repr -> RenderMethod src repr

@@ -35,9 +35,9 @@ instance Show TextBlock where
 	show = fromTextBlock -- (TextBlock lines) = fromTextBlock lines
 
 
-testRenderMeth = lr (spaceDiv 0.5) force force 
-testRenderMeth2 = lr (spaceDiv 0.5) justBlock justBlock 
-testRenderMeth3 = lr (spaceDiv 0.5) justBlock force 
+testRenderMeth = ud (vertSpaceDiv 0.5) force force 
+testRenderMeth2 = lr (horiSpaceDiv 0.5) justBlock justBlock 
+testRenderMeth3 = lr (horiSpaceDiv 0.5) justBlock force 
 text1 = "Hallo\nWelt\nDu\nIdiot"
 text2 = "Bli\nBla\nBlubb"
 
