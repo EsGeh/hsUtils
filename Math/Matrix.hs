@@ -6,7 +6,7 @@ module Math.Matrix(
 	-- ** type aliases for indexes and width or height
 	MatrIndex,IndexRow,IndexCol,Width,Height,
 	-- * Matrix Pseudo Constructors
-	m,mUnsafe,mSqr,
+	m,
 	-- * Getter
 	mGet,mGetHeight,mGetWidth,
 	-- * Setter
@@ -24,6 +24,7 @@ module Math.Matrix(
 	LogVal(..)
 	) where
 --import Card as Unary
+import Util.Vector2D
 import qualified Text.PrettyShow as Pretty
 
 import Data.Foldable hiding(concat,toList)
@@ -40,7 +41,7 @@ import Data.Ratio
 import Data.Array
 
 -- |a matrix. The constructor is hidden, so it cannot be used directly - use 'm' or 'mUnsafe' instead
-data Matrix t = M (Array Int (Array Int t))
+data Matrix t = M (Array MatrIndex t)
 	deriving(Traversable) -- don't know how to implement that, so I am using the "deriving" clause, ...
 -- |index to access elements in a matrix
 type MatrIndex = (IndexRow,IndexCol)
@@ -49,22 +50,26 @@ type IndexCol = Int
 type Width = Int
 type Height = Int
 
+type Size t = Vec t
+type MatrSize t = Vec Int
+
 ---------------------------------------------------------------------------------------
 -- instance declarations: -------------------------------------------------------------
 ---------------------------------------------------------------------------------------
 -- | show the matrix in a nice table like representation
 instance (Show t) => Show (Matrix t) where
-	show m@(M listLines) = 
-		concat $ intersperse "\n" $ elems $ fmap (prettyShow " | " ((fromIntegral maxLength)%1) 0 ) $ listLines
+	show m@(M array) = show array
+		{-concat $ intersperse "\n" $ elems $ fmap (prettyShow " | " ((fromIntegral maxLength)%1) 0 ) $ listLines
 			where
 				maxLength = Fold.maximum $ fmap (length . show) m
 				prettyShow = Pretty.showContainer "" "" " " " " Pretty.LeftJust
+				-}
 -- |enables mapping a function over every element in the matrix
 instance Functor Matrix where
-	fmap f (M listLines) = M $ fmap (fmap f) listLines
+	fmap f (M array) = M $ (fmap f) array
 -- |enables to fold a matrix into a single value
 instance Foldable Matrix where
-	foldMap toMonoid (M l) = foldMap (foldMap toMonoid) l
+	foldMap toMonoid (M array) = foldMap toMonoid array
 {-instance Traversable Matrix where
 	--traverse :: Applicative f => (a -> f b) -> Matrix a -> f (Matrix b)
 	traverse f (M listLines) = traverse (mUnsafe . traverse f) listLines
@@ -72,19 +77,33 @@ instance Foldable Matrix where
 -- |a matix of functions can be applied on a matrix of values
 instance Applicative Matrix where
 	--pure :: a -> Matrix a
-	pure val = mUnsafe [[ val ]]
+	pure val = m (0,0) (\_ -> val)
 	--(<*>) :: Matrix (a->b) -> Matrix a -> Matrix b
-	matrF <*> matrVal = mUnsafe $
-		[ [ (mGet (indexRow,indexCol) matrF $ (mGet (indexRow,indexCol) matrVal)) | indexCol <- (mGetAllIndexCol matrVal) ] | indexRow <- (mGetAllIndexRow matrVal)]
+	matrF <*> matrVal = mapWithIndex f matrVal
+		where
+			f ind x = (mGet ind matrF) x
+		--[ [ (mGet (indexRow,indexCol) matrF $ (mGet (indexRow,indexCol) matrVal)) | indexCol <- (mGetAllIndexCol matrVal) ] | indexRow <- (mGetAllIndexRow matrVal)]
 
 -- |fmap allows to map a function over a 'Foldable'
 -- but the function does not know the position of the element it is applied on.
 -- 'mapWithIndex' solves this problem
 mapWithIndex :: (MatrIndex -> a -> b) -> Matrix a -> Matrix b
-mapWithIndex f mat = mUnsafe $
-	[ [ (f (indexRow,indexCol) (mGet (indexRow,indexCol) mat)) | indexCol <- (mGetAllIndexCol mat) ] | indexRow <- (mGetAllIndexRow mat)]
+mapWithIndex f mat = m (mGetSize mat) (\index -> f index (mGet index mat))
 
 -- |creates a matrix from a list of lines. The result is packed into Maybe, because the input might be invalid
+m :: MatrSize t -> (MatrIndex -> t) -> Matrix t
+m size f = M $ array ((0,0),size |-| (1,1)) [ (ind, f ind) | ind <- allIndices ]
+	where
+		allIndices = [ (row,col) | row <-[0..(vecX size -1)], col <- [0..(vecY size -1)] ]
+
+mFromListRow listLines = if isValid listLines
+	then Just $ m (height,width) (\(row,col) -> (listLines !! row) !! col)
+	else Nothing
+	where
+		isValid listLines = foldl (\x y -> x && (length y==width)) True listLines
+		height = length listLines
+		width = length $ listLines !! 0
+{-
 m :: [[t]] -> Maybe (Matrix t)
 m listLines = if (isValid listLines)
 	then Just $ M $ arrayFromList height $ map (arrayFromList width) listLines
@@ -93,29 +112,33 @@ m listLines = if (isValid listLines)
 		isValid listLines = foldl (\x y -> x && (length y==width)) True listLines
 		height = length listLines
 		width = length $ listLines !! 0
+-}
 
 -- |creates a matrix from a list of lists. If the input is invalid, 'error' is called
+{-
 mUnsafe :: [[t]] -> Matrix t
 mUnsafe listLines = fromMaybe (error "failed to create Matrix from list") $ m listLines
+-}
 
 -- |create a square matrix
-mSqr :: [[t]] -> Maybe (Matrix t)
-mSqr = m
+{-mSqr :: [[t]] -> Maybe (Matrix t)
+mSqr = m-}
 	-- to do: check if input makes up a valid square matrix
+mGetSize (M array) = (snd $ bounds array) |+| (1,1)
 
 -- |retrieve the height of a matrix, that is the number of lines it consists of
 mGetHeight :: Matrix t -> Height
-mGetHeight (M listLines) = (+1) $ snd $ bounds $ listLines
+mGetHeight = vecY . mGetSize
 -- |retrieve the width of a matrix, that is the number of columns it consists of
 mGetWidth :: Matrix t -> Width
-mGetWidth m@(M listLines) = if (mGetHeight m > 0) then ((+1) $ snd $ bounds $ listLines ! 0) else 0
+mGetWidth = vecX .mGetSize
 
 
 -- |retrieve the element by its index from the matrix
 mGet :: MatrIndex -> Matrix t -> t
-mGet index (M listLines) = (listLines ! row) ! col
-	where
-		row = fst index; col = snd index
+mGet index (M array) = array ! index
+
+--mGetLines (M lines) = lines
 
 -- |returns an element, packed in the 'WithOriginMatr' Monad
 mGetWithOrigin :: MatrIndex -> Matrix t -> (t,MatrIndex)
@@ -130,6 +153,8 @@ mGetWithLog index matr = do
 mGetAllIndexRow matr = [0..(mGetHeight matr -1)]
 mGetAllIndexCol matr = [0..(mGetWidth matr -1)]
 mGetAllIndex matr = [(row,col) | row <- mGetAllIndexRow matr, col <- mGetAllIndexCol matr ]
+
+mGetSub (pos,size) matr = m size (\index -> mGet (index |+| pos) matr)
 
 -- |set the element at a specific index inside a matrix
 mSet :: MatrIndex -> t -> Matrix t -> Matrix t
