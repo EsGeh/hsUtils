@@ -1,28 +1,73 @@
-module Text.TextBlock where
+module Text.TextBlock(
+	-- * data types
+	TextBlock(),
+	-- ** nice aliases
+	Ellipse,Line,
+	-- * pseudo constructors
+	textBlock,textBlockTrunc,textBlockTruncWE,textBlockAutoNewLineWE,
+	force,justBlock
+)where
 
 import Text.PrettyShow
+import Util.Vector2D
 
+
+import Control.Monad.State
+
+import Prelude hiding (lines)
+import qualified Prelude as P
 
 
 -- |represents text in a way that also encodes how it is divided into lines
--- imagine it as representing the text as a list of lines
+-- any text t is guaranteed to fit into the rectangle of 'msize' t
 data TextBlock = TextBlock {
 	lines :: [String]
 }
+-- |this enables construction of 'RenderMethod's that create TextBlocks (see module 'Text.PrettyShow')
 instance Monoid2D TextBlock where
 	l ||| r = lrText l r
 	u === d = udText u d
-	msize text = case (lines text) of
+	m2size text = case (lines text) of
 		[] -> (0,0)
 		list -> (length (head list), length list)
+	m2empty = textBlock ""
 instance Show TextBlock where
 	show = fromTextBlock -- (TextBlock lines) = fromTextBlock lines
+
+
+testRenderMeth = lr (spaceDiv 0.5) force force 
+testRenderMeth2 = lr (spaceDiv 0.5) justBlock justBlock 
+testRenderMeth3 = lr (spaceDiv 0.5) justBlock force 
+text1 = "Hallo\nWelt\nDu\nIdiot"
+text2 = "Bli\nBla\nBlubb"
+
+testHorizontal = horizontal (repeat force)
+
+---------------------------------------------------------------------------
+-- RenderMethods using TextBlocks:
+---------------------------------------------------------------------------
+
+-- |ignores the given size, and renders taking the size needed
+justBlock :: RenderMethod String TextBlock
+justBlock = RenderMeth $ \size str -> textBlock str
+
+-- |just forces something into the given size, cut if too big
+force :: RenderMethod String TextBlock
+force = RenderMeth $ \size str -> textBlockTrunc size str
+
+
+---------------------------------------------------------------------------
+-- functions on text blocks:
+---------------------------------------------------------------------------
+
+type Ellipse = String
+type Line = String
 
 textBlock = normalize . TextBlock . P.lines
 textBlockTruncWE size ellAtLineEnding ellAtTextEnding str = textMap (linesSetSizeWE size ellAtLineEnding ellAtTextEnding) $ textBlock str
 textBlockTrunc size str = textMap (linesSetSize size) $ textBlock str
 
-textBlockAutoNewLineWE size ellAtLineEnding ellAtTextEnding str = textMap (linesSetSizeWE size ellAtLineEnding ellAtTextEnding . textAutoNewLine size "" ) $ textBlock str
+textBlockAutoNewLineWE size ellAtLineEnding ellAtTextEnding str = textMap (linesSetSizeWE size ellAtLineEnding ellAtTextEnding . linesAutoNewLine size "" ) $ textBlock str
 --textBlock size str = autoNewLine size 
 fromTextBlock (TextBlock lines) = unlines $ linesHomWidth lines
 
@@ -41,12 +86,16 @@ udText (TextBlock lLines) (TextBlock rLines) = TextBlock $ linesHomWidth $
 normalize = textMap linesHomWidth
 textMap f (TextBlock lines) = TextBlock $ f lines
 
--- lists of line: 
+
+---------------------------------------------------------------------------
+-- functions on lists of lines
+---------------------------------------------------------------------------
 linesHomWidth :: [String] -> [String]
 linesHomWidth lines = linesSetWidth (maximum $ map length lines) lines
 
 
-textAutoNewLine size ell = divNice . join . map words -- . Prelude.lines
+linesAutoNewLine :: Size Int -> Ellipse -> [Line] -> [Line]
+linesAutoNewLine size ell = divNice . join . map words -- . Prelude.lines
 	where
 		divNice :: [String] -> [String]
 		divNice words = snd $ snd $ runState (divNiceM words) $ ((0,0), [])
@@ -56,11 +105,6 @@ textAutoNewLine size ell = divNice . join . map words -- . Prelude.lines
 			if (not . null) remaining
 				then fillLine size remaining >>= divNiceM 
 				else return remaining
-
-runFirst st = (runState st) ((0,0), [])
-test' = fillLine (10,10)
-param = ["Hallo","Welt","Bli","Bla","Blubb"]
-
 
 
 -- the suffix "WE" is for "with ellipse"
@@ -106,21 +150,11 @@ fillLine size (nextWord:remainingWords) = state $ \(pos, yetParsed') ->
 fillLine size [] = state $ \(pos, yetParsed) -> ([], (pos,yetParsed))
 
 
--- |ignores the given size, and renders taking the size needed
-justBlock :: String -> RenderMethod TextBlock
-justBlock str = RenderMeth $ \size -> textBlock str
-
--- |just forces something into the given size, cut if too big
-force :: String -> RenderMethod TextBlock
-force str = RenderMeth $ \size -> textBlockTrunc size str
-
-type Ellipse = String
 
 {-forceWithEllipse :: String -> Ellipse -> Block TextBlock
 forceWithEllipse str ell = Block $ \size -> (textBlockTrunc (size-length ell) str)-}
 
 
-test = lr 0.2 (force "Hallo\nWelt") (justBlock "bli\nbla\nblubb")
 
 --
 {-showContainer borderL borderR tileL tileR orient separator elemLenMin minTotalLength c = fst . fromJust $ Fold.foldl conc Nothing $ fmap Just strings
