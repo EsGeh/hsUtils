@@ -25,7 +25,7 @@ module Math.Matrix(
 	) where
 --import Card as Unary
 import Util.Vector2D
-import qualified Text.PrettyShow as Pretty
+import qualified Text as T
 
 import Data.Foldable hiding(concat,toList)
 import Data.Foldable as Fold hiding(concat,toList)
@@ -39,6 +39,8 @@ import Data.Maybe
 import Control.Monad.Writer
 import Data.Ratio
 import Data.Array
+
+import Debug.Trace
 
 -- |a matrix. The constructor is hidden, so it cannot be used directly - use 'm' or 'mUnsafe' instead
 data Matrix t = M (Array MatrIndex t)
@@ -58,7 +60,12 @@ type MatrSize t = Vec Int
 ---------------------------------------------------------------------------------------
 -- | show the matrix in a nice table like representation
 instance (Show t) => Show (Matrix t) where
-	show m@(M array) = show array
+	show m@(M array) = show $ (T.runRenderMeth $ renderMeth) (0,0) listCol
+		where
+			renderMeth :: (Show t) => T.RenderMethod [[t]] T.TextBlock
+			renderMeth = T.horizontalWith (T.filledBlock "|") (repeat (T.vertical (repeat T.justBlock)))
+			listCol = [ mGetCol indexCol m | indexCol <- mGetAllIndexCol m ]
+			
 		{-concat $ intersperse "\n" $ elems $ fmap (prettyShow " | " ((fromIntegral maxLength)%1) 0 ) $ listLines
 			where
 				maxLength = Fold.maximum $ fmap (length . show) m
@@ -128,10 +135,10 @@ mGetSize (M array) = (snd $ bounds array) |+| (1,1)
 
 -- |retrieve the height of a matrix, that is the number of lines it consists of
 mGetHeight :: Matrix t -> Height
-mGetHeight = vecY . mGetSize
+mGetHeight = vecX . mGetSize
 -- |retrieve the width of a matrix, that is the number of columns it consists of
 mGetWidth :: Matrix t -> Width
-mGetWidth = vecX .mGetSize
+mGetWidth = vecY .mGetSize
 
 
 -- |retrieve the element by its index from the matrix

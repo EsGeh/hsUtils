@@ -7,12 +7,14 @@ module Text.PrettyShow (
 	-- * render function combinators
 	lr, ud,
 	vertical, horizontal,
+	horizontalWith,
 	-- * space division functions
 	horiSpaceDiv, vertSpaceDiv
 ) where
 
 import Util.Vector2D
 
+import Data.List
 import Data.Maybe
 import Data.Monoid
 import Data.Ratio
@@ -65,9 +67,17 @@ vertSpaceDiv ratio size = (sizeU,sizeD)
 		sizeU = vecMap ceiling $ vecMap fromIntegral size |*| (1,ratio)
 		sizeD = size |-| (0,vecY sizeU)
 
+horizontalWith :: (Monoid2D repr) => (Size Int -> repr) -> [RenderMethod src repr] -> RenderMethod [src] repr
+horizontalWith middle = horizontal_ concWithGap
+	where
+		concWithGap l r = l ||| middle size ||| r
+			where size = (1, max (vecY $ m2size l) (vecY $ m2size r))
 
 horizontal :: (Monoid2D repr) => [RenderMethod src repr] -> RenderMethod [src] repr
-horizontal renderList = case renderList of
+horizontal = horizontal_ (|||)
+
+horizontal_ :: (Monoid2D repr) => (repr -> repr -> repr) -> [RenderMethod src repr] -> RenderMethod [src] repr
+horizontal_ conc renderList = case renderList of
 	[] -> RenderMeth $ \size src -> m2empty
 	(fstRender:restRender) -> 
 		let
@@ -75,10 +85,13 @@ horizontal renderList = case renderList of
 		in
 			RenderMeth $ \size srcList -> case srcList of
 				[] -> m2empty
-				(fstSrc:restSrc) -> fRenderFst oneElSize fstSrc ||| (runRenderMeth $ horizontal restRender) (size |-| (vecX oneElSize,0)) restSrc
+				(fstSrc:restSrc) -> if minLength == 1
+					then fRenderFst oneElSize fstSrc
+					else fRenderFst oneElSize fstSrc `conc` (runRenderMeth $ horizontal_ conc restRender) (size |-| (vecX oneElSize,0)) restSrc
 					where
-						oneElSize = vecMap ceiling $ vecMap fromIntegral size |/| (fromIntegral $ minLength renderList srcList, 1)
-						minLength list otherList = length $ zip list otherList
+						oneElSize = vecMap ceiling $ vecMap fromIntegral size |/| (fromIntegral $ minLength, 1)
+						minLength = length $ zip renderList srcList
+
 
 vertical :: (Monoid2D repr) => [RenderMethod src repr] -> RenderMethod [src] repr 
 vertical renderMethods = case renderMethods of

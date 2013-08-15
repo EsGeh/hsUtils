@@ -5,6 +5,7 @@ module Text.TextBlock(
 	Ellipse,Line,
 	-- * pseudo constructors
 	textBlock,textBlockTrunc,textBlockTruncWE,textBlockAutoNewLineWE,
+	filledBlock,
 	force,justBlock
 )where
 
@@ -35,13 +36,14 @@ instance Show TextBlock where
 	show = fromTextBlock -- (TextBlock lines) = fromTextBlock lines
 
 
-testRenderMeth = ud (vertSpaceDiv 0.5) force force 
+
+{-testRenderMeth = ud (vertSpaceDiv 0.5) force force 
 testRenderMeth2 = lr (horiSpaceDiv 0.5) justBlock justBlock 
-testRenderMeth3 = lr (horiSpaceDiv 0.5) justBlock force 
+testRenderMeth3 = lr (horiSpaceDiv 0.5) justBlock force -}
 text1 = "Hallo\nWelt\nDu\nIdiot"
 text2 = "Bli\nBla\nBlubb"
 
-testHorizontal = horizontal (repeat force)
+--testHorizontal = horizontal (repeat force)
 
 ---------------------------------------------------------------------------
 -- RenderMethods using TextBlocks:
@@ -54,6 +56,9 @@ justBlock = RenderMeth $ \size val -> textBlock (show val)
 -- |just forces something into the given size, cut if too big
 force :: (Show a) => RenderMethod a TextBlock
 force = RenderMeth $ \size val -> textBlockTrunc size (show val)
+
+filledBlock :: String -> Size Int -> TextBlock
+filledBlock str (width,height) = TextBlock $ take height $ map (take width) $ repeat (concat $ repeat str)
 
 
 ---------------------------------------------------------------------------
