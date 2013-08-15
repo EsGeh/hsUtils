@@ -48,12 +48,12 @@ testHorizontal = horizontal (repeat force)
 ---------------------------------------------------------------------------
 
 -- |ignores the given size, and renders taking the size needed
-justBlock :: RenderMethod String TextBlock
-justBlock = RenderMeth $ \size str -> textBlock str
+justBlock :: (Show a) => RenderMethod a TextBlock
+justBlock = RenderMeth $ \size val -> textBlock (show val)
 
 -- |just forces something into the given size, cut if too big
-force :: RenderMethod String TextBlock
-force = RenderMeth $ \size str -> textBlockTrunc size str
+force :: (Show a) => RenderMethod a TextBlock
+force = RenderMeth $ \size val -> textBlockTrunc size (show val)
 
 
 ---------------------------------------------------------------------------
