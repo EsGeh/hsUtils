@@ -1,6 +1,6 @@
 -- | This module exports a matrix type as well as some functions to work with it
 {-# LANGUAGE GeneralizedNewtypeDeriving, DeriveTraversable #-}
-module Math.Matrix(
+module Math.MatrixTS(
 	-- * Types
 	Matrix(),
 	-- ** type aliases for indexes and width or height

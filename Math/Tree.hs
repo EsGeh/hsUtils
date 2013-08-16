@@ -9,12 +9,13 @@ module Math.Tree(
 	-- * setters
 	addChild,delChildFromIndex,mapOverChildren,applyOnChildren,
 	-- * serializations
-	pShow
+	--pShow
 
 )
 where
 
-import qualified Text.PrettyShow as Pretty
+import qualified Text.TextBlock as T
+import Text
 import Data.Ratio
 import qualified Data.Foldable as Fold
 
@@ -75,10 +76,17 @@ instance Fold.Foldable Node where
 
 testTree = node 0 [ leaf 1, leaf 2, leaf 3 ]
 testTree2 = node 0 [ node 1 [leaf 1.1, leaf 1.2, leaf 1.3], leaf 2, leaf 3 ]
+testTree3 = node 0 [ leaf 1 , node 2 [leaf 1.1, leaf 1.2, leaf 1.3 ], leaf 3 ]
 	
 
 -- |this method should give a nice text serialisation of the tree:
-pShow width (Node params list) =
+pShow width (Node params children) = (runRenderMeth $ force) (width,1) params === (runRenderMeth $ renderChildren) (width,10) (map (pShow oneChildWidth) children)
+	where
+		oneChildWidth = floor $ fromIntegral width / fromIntegral (length children)
+		renderChildren = horizontal (repeat force)
+	
+-- |this method should give a nice text serialisation of the tree:
+{-pShow width (Node params list) =
 	(prettyFill width $ show params)
 		++ (if length list > 0 then "\n" else "")
 		++ subNodes
@@ -93,6 +101,7 @@ pShow width (Node params list) =
 					| otherwise = ""
 				prettyFill = Pretty.fill "[" "]" " " " " Pretty.MidJust
 				subWidth = floor $ (width%1) / ((length list) %1)
+				-}
 
 instance (Show t) => Show (Node t) where
 	show (Node params []) = show params 
