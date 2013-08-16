@@ -4,19 +4,19 @@ module Math.Matrix(
 	-- * Types
 	Matrix(),
 	-- ** type aliases for indexes and width or height
-	MatrIndex,IndexRow,IndexCol,Width,Height,
+	MatrIndex,IndexRow,IndexCol,MatrSize,Width,Height,
 	-- * Matrix Pseudo Constructors
 	m,
 	-- * Getter
 	mGet,mGetHeight,mGetWidth,
+	-- ** Lists of Indices
+	mGetAllIndexRow,mGetAllIndexCol,mGetAllIndex,
+	-- ** Monadic Getters
+	mGetWithOrigin,
 	-- * Setter
 	mSet,
 	-- * enhanced mapping
 	mapWithIndex,
-	-- ** Monadic Getters
-	mGetWithOrigin,
-	-- ** Lists of Indices
-	mGetAllIndexRow,mGetAllIndexCol,mGetAllIndex,
 	-- * Special Monads (experimental)
 	LogOrigin,
 	Origin(..),
@@ -49,11 +49,11 @@ data Matrix t = M (Array MatrIndex t)
 type MatrIndex = (IndexRow,IndexCol)
 type IndexRow = Int
 type IndexCol = Int
+type MatrSize t = Vec Int
 type Width = Int
 type Height = Int
 
-type Size t = Vec t
-type MatrSize t = Vec Int
+--type Size t = Vec t
 
 ---------------------------------------------------------------------------------------
 -- instance declarations: -------------------------------------------------------------
