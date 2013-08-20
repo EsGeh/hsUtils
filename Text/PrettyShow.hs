@@ -42,8 +42,8 @@ pos = fst
 
 -- |things that can be concatenated in two ways. (|||) is for horizontal, (===) for vertical concatenation
 class Monoid2D a where
-	(|||) :: a -> a -> a -- |concatenate horizontal ( "Block | Block")
-	(===) :: a -> a -> a -- |concatenate vertically ( "Block / Block")
+	(|||) :: a -> a -> a -- concatenate horizontal ( "Block | Block")
+	(===) :: a -> a -> a -- concatenate vertically ( "Block / Block")
 	m2size :: a -> Size Int
 	m2empty :: a
 

@@ -44,7 +44,7 @@ cabal-version:       >=1.8
 
 library
   -- Modules exported by the library.
-  exposed-modules:     Util.CountingList, Util.Info, Util.Card.Unary, Util.Card.Card, Util.Vector2D, Math, Math.Tree, Math.Matrix, Math.MatrixTS, Text, Text.PrettyShow
+  exposed-modules:     Util.CountingList, Util.Info, Util.Card.Unary, Util.Card.Card, Util.Vector2D, Math, Math.Tree, Math.Matrix, Math.MatrixTS, Text, Text.PrettyShow, Text.TextBlock
   
   -- Modules included in this library but not exported.
   -- other-modules:       

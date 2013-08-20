@@ -2,17 +2,19 @@ module Text.TextBlock(
 	-- * data types
 	TextBlock(),
 	-- ** nice aliases
-	Ellipse,Line,
+	Ellipsis,Line,
 	-- * pseudo constructors
 	textBlock,textBlockTrunc,textBlockTruncWE,textBlockAutoNewLineWE,
 	filledBlock,
-	force,justBlock
+	-- * basic render methods
+	force,forceWE,divToLinesWE,
+	justBlock
 )where
 
 import Text.PrettyShow
 import Util.Vector2D
 
-
+import Data.List hiding(lines)
 import Control.Monad.State
 
 import Prelude hiding (lines)
@@ -57,6 +59,15 @@ justBlock = RenderMeth $ \size val -> textBlock (show val)
 force :: (Show a) => RenderMethod a TextBlock
 force = RenderMeth $ \size val -> textBlockTrunc size (show val)
 
+-- |freely divide into lines, cut using ellipsis, if too big:
+divToLinesWE :: (Show a) => Ellipsis -> RenderMethod a TextBlock
+divToLinesWE ell = RenderMeth $ \size val -> textBlockAutoNewLineWE size ell (show val)
+
+-- |just forces something into the given size, cut if too big, print ellipsis
+forceWE :: (Show a) => Ellipsis -> Ellipsis -> RenderMethod a TextBlock
+forceWE ellAtLineEnding ellAtLastLine= RenderMeth $ \size val -> textBlockTruncWE size ellAtLineEnding ellAtLastLine (show val)
+
+
 filledBlock :: String -> Size Int -> TextBlock
 filledBlock str (width,height) = TextBlock $ take height $ map (take width) $ repeat (concat $ repeat str)
 
@@ -65,14 +76,15 @@ filledBlock str (width,height) = TextBlock $ take height $ map (take width) $ re
 -- functions on text blocks:
 ---------------------------------------------------------------------------
 
-type Ellipse = String
+type Ellipsis = String
 type Line = String
 
 textBlock = normalize . TextBlock . P.lines
 textBlockTruncWE size ellAtLineEnding ellAtTextEnding str = textMap (linesSetSizeWE size ellAtLineEnding ellAtTextEnding) $ textBlock str
 textBlockTrunc size str = textMap (linesSetSize size) $ textBlock str
 
-textBlockAutoNewLineWE size ellAtLineEnding ellAtTextEnding str = textMap (linesSetSizeWE size ellAtLineEnding ellAtTextEnding . linesAutoNewLine size "" ) $ textBlock str
+textBlockAutoNewLineWE size ell str = textMap (linesAutoNewLine size ell ) $ textBlock str
+{-textBlockAutoNewLineWE size ellAtLineEnding ellAtTextEnding str = textMap (linesSetSizeWE size ellAtLineEnding ellAtTextEnding . linesAutoNewLineCareful size "" ) $ textBlock str-}
 --textBlock size str = autoNewLine size 
 fromTextBlock (TextBlock lines) = unlines $ linesHomWidth lines
 
@@ -98,9 +110,9 @@ textMap f (TextBlock lines) = TextBlock $ f lines
 linesHomWidth :: [String] -> [String]
 linesHomWidth lines = linesSetWidth (maximum $ map length lines) lines
 
-
-linesAutoNewLine :: Size Int -> Ellipse -> [Line] -> [Line]
-linesAutoNewLine size ell = divNice . join . map words -- . Prelude.lines
+ -- experimental!!
+linesAutoNewLineCareful :: Size Int -> Ellipsis -> [Line] -> [Line]
+linesAutoNewLineCareful size ell = divNice . join . map words -- . Prelude.lines
 	where
 		divNice :: [String] -> [String]
 		divNice words = snd $ snd $ runState (divNiceM words) $ ((0,0), [])
@@ -111,8 +123,39 @@ linesAutoNewLine size ell = divNice . join . map words -- . Prelude.lines
 				then fillLine size remaining >>= divNiceM 
 				else return remaining
 
+-- experimental!! 
+linesAutoNewLine :: Size Int -> Ellipsis -> [Line] -> [Line]
+linesAutoNewLine size ell = divNice . concAll
+	where
+		concAll = foldr1 concLines
+		concLines l r = dropWhileEnd (==' ') l ++ " " ++ dropWhile (==' ') r
+		--divNice str = [str]
+		--divNice :: String -> [Line]
+		divNice str = fst $ divNice_ [] str
+		divNice_ :: [Line] -> String -> ([Line],String)
+		divNice_ yetParsed str = (newParsed,newRest)
+			where
+				(newParsed,newRest) =
+					if null str
+					then (yetParsed,str)
+					else
+						if length yetParsed >= (vecY size)
+						then (appendEllipse (vecX size) ell yetParsed, str)
+						else (\(lastLine,newRest) -> divNice_ (yetParsed ++ [lastLine]) newRest) $ appendAsMuchAsPossibleToLine (vecX size) "" str
 
--- the suffix "WE" is for "with ellipse"
+appendEllipse :: Int -> Ellipsis -> [Line] -> [Line]
+appendEllipse width ell yetParsed = init yetParsed ++ [appendEllipsisToLine width (last yetParsed) ell]
+-- |
+appendAsMuchAsPossibleToLine :: Int -> Line -> String -> (Line,String)
+appendAsMuchAsPossibleToLine width line append = splitAt width (line ++ append)
+
+-- | guaranties: result will have length == width, 
+-- result will end with the ellipse (if length ell <= width)
+appendEllipsisToLine width line ell = take width $ beginning ++ ell
+	where
+		beginning = take (width-length ell) $ line ++ repeat ' '
+
+-- the suffix "WE" is for "with ellipsis"
 
 linesSetSize size = linesSetHeight (vecY size) . linesSetWidth (vecX size)
 linesSetSizeWE size ellAtLineEnding ellAtTextEnding = linesSetHeightWE (vecY size) ellAtTextEnding . linesSetWidthWE (vecX size) ellAtLineEnding
@@ -139,6 +182,11 @@ linesSetWidth width = map fillWithSpaces
 
 -- internal helper functions:
 
+stateLoop :: (Monad m) => (m a -> Bool) -> (a -> m a) -> m a -> m a
+stateLoop cond mf s = if cond s
+	then stateLoop cond mf (s >>= mf)
+	else s
+
 -- remaining -> State( \(pos,yetParsed) -> (remaining, (pos,yetParsed)) )
 fillLine :: Size Int -> [String] -> State (Pos Int, [String]) [String]
 fillLine size (nextWord:remainingWords) = state $ \(pos, yetParsed') ->
@@ -156,8 +204,8 @@ fillLine size [] = state $ \(pos, yetParsed) -> ([], (pos,yetParsed))
 
 
 
-{-forceWithEllipse :: String -> Ellipse -> Block TextBlock
-forceWithEllipse str ell = Block $ \size -> (textBlockTrunc (size-length ell) str)-}
+{-forceWithEllipsis :: String -> Ellipsis -> Block TextBlock
+forceWithEllipsis str ell = Block $ \size -> (textBlockTrunc (size-length ell) str)-}
 
 
 

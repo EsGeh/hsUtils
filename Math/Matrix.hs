@@ -6,11 +6,14 @@ module Math.Matrix(
 	-- ** type aliases for indexes and width or height
 	MatrIndex,IndexRow,IndexCol,MatrSize,Width,Height,
 	-- * Matrix Pseudo Constructors
-	m,
+	m, mFromListRow,
 	-- * Getter
-	mGet,mGetHeight,mGetWidth,
+	mGet,
+	mGetSize,mGetHeight,mGetWidth,
 	-- ** Lists of Indices
 	mGetAllIndexRow,mGetAllIndexCol,mGetAllIndex,
+	-- ** extract specific parts from the matrix
+	mGetSub,mGetRow,mGetCol,
 	-- ** Monadic Getters
 	mGetWithOrigin,
 	-- * Setter
@@ -45,10 +48,11 @@ import Debug.Trace
 -- |a matrix. The constructor is hidden, so it cannot be used directly - use 'm' or 'mUnsafe' instead
 data Matrix t = M (Array MatrIndex t)
 	deriving(Traversable) -- don't know how to implement that, so I am using the "deriving" clause, ...
--- |index to access elements in a matrix
+-- |index to access elements in a matrix. First entry is for the row, second for the column
 type MatrIndex = (IndexRow,IndexCol)
 type IndexRow = Int
 type IndexCol = Int
+-- |size of a matrix. First entry is for the number of rows, second for the number of columns
 type MatrSize t = Vec Int
 type Width = Int
 type Height = Int
@@ -97,15 +101,16 @@ instance Applicative Matrix where
 mapWithIndex :: (MatrIndex -> a -> b) -> Matrix a -> Matrix b
 mapWithIndex f mat = m (mGetSize mat) (\index -> f index (mGet index mat))
 
--- |creates a matrix from a list of lines. The result is packed into Maybe, because the input might be invalid
+-- |creates a matrix from a size and a function
 m :: MatrSize t -> (MatrIndex -> t) -> Matrix t
 m size f = M $ array ((0,0),size |-| (1,1)) [ (ind, f ind) | ind <- allIndices ]
 	where
 		allIndices = [ (row,col) | row <-[0..(vecX size -1)], col <- [0..(vecY size -1)] ]
 
-mFromListRow listLines = if isValid listLines
-	then Just $ m (height,width) (\(row,col) -> (listLines !! row) !! col)
-	else Nothing
+-- |creates a matrix from a list of lines. The function fails, if the input is malformed
+mFromListRow listLines = if not (isValid listLines)
+	then fail "wrong input formatwrong input format!"
+	else (return $ m (height,width) (\(row,col) -> (listLines !! row) !! col))
 	where
 		isValid listLines = foldl (\x y -> x && (length y==width)) True listLines
 		height = length listLines
@@ -131,6 +136,9 @@ mUnsafe listLines = fromMaybe (error "failed to create Matrix from list") $ m li
 {-mSqr :: [[t]] -> Maybe (Matrix t)
 mSqr = m-}
 	-- to do: check if input makes up a valid square matrix
+-- |returns a tuple representing the size of the matrix
+-- first entry represents the number of rows
+-- second entry represents the number of columns
 mGetSize (M array) = (snd $ bounds array) |+| (1,1)
 
 -- |retrieve the height of a matrix, that is the number of lines it consists of
@@ -145,11 +153,14 @@ mGetWidth = vecY .mGetSize
 mGet :: MatrIndex -> Matrix t -> t
 mGet index (M array) = array ! index
 
+-- |returns a submatrix
 mGetSub (pos,size) matr = m size (\index -> mGet (index |+| pos) matr)
+-- |returns a row of the matrix as a list
 mGetRow indexRow matr = do
 	indexCol <- mGetAllIndexCol matr
 	let index = (indexRow,indexCol)
 	return $ mGet index matr
+-- |returns a column of the matrix as a list
 mGetCol indexCol matr = do
 	indexRow <- mGetAllIndexRow matr
 	let index = (indexRow,indexCol)

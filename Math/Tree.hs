@@ -9,7 +9,7 @@ module Math.Tree(
 	-- * setters
 	addChild,delChildFromIndex,mapOverChildren,applyOnChildren,
 	-- * serializations
-	--pShow
+	pShow
 
 )
 where
@@ -19,7 +19,8 @@ import Text
 import Data.Ratio
 import qualified Data.Foldable as Fold
 
--- | a nice alias for a node
+
+-- | a tree is a node
 type Tree t = Node t
 -- | a node
 data Node t = Node {
@@ -27,9 +28,12 @@ data Node t = Node {
 	children :: [Node t]
 }
 
+
+type Width = Int
+
 {-- node :: t -> [t] -> Node t
 node value sublist = Node value (map node --}
--- | create a leaf
+-- | create a leaf from a value
 leaf :: t -> Node t 
 leaf value = Node value []
 
@@ -64,7 +68,7 @@ applyOnChildren f node = Node oldVal newChildren
 		newChildren = f $ children node
 
 
---this makes it possible to map over a tree:
+-- |this makes it possible to map over a tree:
 instance Functor Node where
 	fmap f (Node value []) = leaf (f value)
 	fmap f (Node params (children)) = Node (f params) (map (fmap f) children)
@@ -80,12 +84,17 @@ testTree3 = node 0 [ leaf 1 , node 2 [leaf 1.1, leaf 1.2, leaf 1.3 ], leaf 3 ]
 	
 
 -- |this method should give a nice text serialisation of the tree:
-pShow width (Node params children) = (runRenderMeth $ force) (width,1) params === (runRenderMeth $ renderChildren) (width,10) (map (pShow oneChildWidth) children)
+pShow :: (Show t) => Int -> Width -> Tree t -> TextBlock 
+pShow maxDepth width (Node params children) = if maxDepth <= 0
+	then m2empty
+	else
+		(runRenderMeth $ force) (width,1) params === (runRenderMeth $ renderChildren) (width,10) (map (pShow (maxDepth-1) oneChildWidth) children)
 	where
 		oneChildWidth = floor $ fromIntegral width / fromIntegral (length children)
 		renderChildren = horizontal (repeat force)
+
 	
--- |this method should give a nice text serialisation of the tree:
+-- this method should give a nice text serialisation of the tree:
 {-pShow width (Node params list) =
 	(prettyFill width $ show params)
 		++ (if length list > 0 then "\n" else "")
@@ -103,6 +112,7 @@ pShow width (Node params children) = (runRenderMeth $ force) (width,1) params ==
 				subWidth = floor $ (width%1) / ((length list) %1)
 				-}
 
+-- |shows the tree in one line
 instance (Show t) => Show (Node t) where
 	show (Node params []) = show params 
 	show (Node params children) = show params ++ showChildren children ++ "\n"
