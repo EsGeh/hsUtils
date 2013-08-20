@@ -88,7 +88,7 @@ pShow :: (Show t) => Int -> Width -> Tree t -> TextBlock
 pShow maxDepth width (Node params children) = if maxDepth <= 0
 	then m2empty
 	else
-		(runRenderMeth $ force) (width,1) params === (runRenderMeth $ renderChildren) (width,10) (map (pShow (maxDepth-1) oneChildWidth) children)
+		(runRenderMeth $ divToLinesWE "..") (width,1) params === (runRenderMeth $ renderChildren) (width,10) (map (pShow (maxDepth-1) oneChildWidth) children)
 	where
 		oneChildWidth = floor $ fromIntegral width / fromIntegral (length children)
 		renderChildren = horizontal (repeat force)
