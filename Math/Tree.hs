@@ -30,6 +30,7 @@ data Node t = Node {
 
 
 type Width = Int
+type Depth = Int
 
 {-- node :: t -> [t] -> Node t
 node value sublist = Node value (map node --}
@@ -81,7 +82,24 @@ instance Fold.Foldable Node where
 testTree = node 0 [ leaf 1, leaf 2, leaf 3 ]
 testTree2 = node 0 [ node 1 [leaf 1.1, leaf 1.2, leaf 1.3], leaf 2, leaf 3 ]
 testTree3 = node 0 [ leaf 1 , node 2 [leaf 1.1, leaf 1.2, leaf 1.3 ], leaf 3 ]
-	
+
+renderTree :: Depth -> RenderMethod t TextBlock -> RenderMethod (Tree t) TextBlock
+renderTree maxDepth renderElement = if maxDepth <= 0
+	then renderNothing
+	else RenderMeth $ \size (Node params children) ->
+		(runRenderMeth renderThis) size (params,children)
+	where
+		renderNothing = RenderMeth $ \size val -> m2empty
+		--renderThis :: RenderMethod (t, [Tree t]) TextBlock
+		renderThis = ud
+			(vertDivConstAndRest 1)
+			renderElement
+			renderChildren
+			 
+		renderChildren = horizontal
+			(repeat (renderTree (maxDepth-1) renderElement))
+		--renderChildren = horizontal (repeat force)
+
 
 -- |this method should give a nice text serialisation of the tree:
 pShow :: (Show t) => Int -> Width -> Tree t -> TextBlock 

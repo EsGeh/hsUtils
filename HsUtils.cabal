@@ -50,5 +50,5 @@ library
   -- other-modules:       
   
   -- Other library packages from which modules are imported.
-  build-depends:       array -any, base >= 4.5.0.0, syb >=0.3.0.0, mtl >=2.1.0.0
+  build-depends:       array -any, base >= 4.5.0.0, syb >=0.3.0.0, mtl >=2.1.0.0, QuickCheck >= 2.4.0.0
   

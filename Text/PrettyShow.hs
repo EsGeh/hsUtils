@@ -9,15 +9,20 @@ module Text.PrettyShow (
 	vertical, horizontal,
 	horizontalWith,
 	-- * space division functions
-	horiSpaceDiv, vertSpaceDiv
+	horiDivFromRatio, vertDivFromRatio,
+	horiDivConstAndRest, vertDivConstAndRest,
+	horiDivRestAndConst, vertDivRestAndConst,
 ) where
 
 import Util.Vector2D
+
+import Test.QuickCheck
 
 import Data.List
 import Data.Maybe
 import Data.Monoid
 import Data.Ratio
+import Data.Tuple(swap)
 import Prelude hiding (lines)
 import qualified Prelude as P
 
@@ -58,14 +63,37 @@ l ^=== r = lr 0.5 l r-}
 
 type SpaceDivide = Size Int -> (Size Int, Size Int)
 
-horiSpaceDiv ratio size = (sizeL,sizeR)
+horiDivFromRatio :: (RealFrac r) => r -> SpaceDivide
+horiDivFromRatio ratio size = (sizeL,sizeR)
 	where
 		sizeL = vecMap ceiling $ vecMap fromIntegral size |*| (ratio,1)
 		sizeR = size |-| (vecX sizeL,0)
-vertSpaceDiv ratio size = (sizeU,sizeD)
+
+vertDivFromRatio :: (RealFrac r) => r -> SpaceDivide
+vertDivFromRatio ratio size = (sizeU,sizeD)
 	where
 		sizeU = vecMap ceiling $ vecMap fromIntegral size |*| (1,ratio)
 		sizeD = size |-| (0,vecY sizeU)
+
+
+horiDivConstAndRest :: Int -> SpaceDivide
+horiDivConstAndRest const size =
+	((const, vecY size), sizeR)
+	where
+		sizeR = size |-| (const, vecY size)
+
+prop_horiDivFromRatio ratio size = prop_horiDiv (horiDivFromRatio ratio) size
+prop_horiDivConstAndRest const size = prop_horiDiv (horiDivConstAndRest const) size
+prop_horiDivRestAndConst const size = prop_horiDiv (horiDivRestAndConst const) size
+prop_horiDiv divFunc size = (vecX l + vecX r) == vecX size
+	where (l, r) = (divFunc size)
+
+vertDivConstAndRest :: Int -> SpaceDivide
+vertDivConstAndRest const size = swap $ horiDivConstAndRest const (swap size)
+
+horiDivRestAndConst const = swap . horiDivConstAndRest const
+vertDivRestAndConst const = swap . (vertDivConstAndRest const)
+
 
 horizontalWith :: (Monoid2D repr) => (Size Int -> repr) -> [RenderMethod src repr] -> RenderMethod [src] repr
 horizontalWith middle = horizontal_ concWithGap
@@ -118,7 +146,7 @@ lr spacing l r = let
 		in
 			lf sizeL lsrc ||| rf sizeR rsrc
 
-ud :: (Monoid2D repr) => SpaceDivide -> RenderMethod src repr -> RenderMethod src repr -> RenderMethod (src,src) repr
+ud :: (Monoid2D repr) => SpaceDivide -> RenderMethod srcU repr -> RenderMethod srcD repr -> RenderMethod (srcU,srcD) repr
 ud spacing u d = let
 	(uf,df) = (runRenderMeth u, runRenderMeth d)
 	in
