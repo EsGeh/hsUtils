@@ -28,7 +28,9 @@ module Math.Matrix(
 	) where
 --import Card as Unary
 import Util.Vector2D
+import Text
 import qualified Text as T
+--import qualified TextBlock as T
 
 import Data.Foldable hiding(concat,toList)
 import Data.Foldable as Fold hiding(concat,toList)
@@ -67,8 +69,17 @@ instance (Show t) => Show (Matrix t) where
 	show m@(M array) = show $ (T.runRenderMeth $ renderMeth) (0,0) listCol
 		where
 			renderMeth :: (Show t) => T.RenderMethod [[t]] T.TextBlock
-			renderMeth = T.horizontalWith (T.filledBlock "|") (repeat (T.vertical (repeat T.justBlock)))
+			renderMeth = T.horizontalWith (T.filledBlock "|") T.divEqually (repeat (T.vertical T.divEqually (repeat T.justBlock)))
 			listCol = [ mGetCol indexCol m | indexCol <- mGetAllIndexCol m ]
+
+
+renderMatr :: T.RenderMethod t T.TextBlock -> T.RenderMethod (Matrix t) T.TextBlock
+renderMatr renderElement = RenderMeth $ \size matr -> (runRenderMeth $ renderListCol) size (listCol matr)
+	where
+		--renderListCol :: (Show t) => RenderMethod [[t]] TextBlock
+		renderListCol = T.horizontalWith (filledBlock "|") (T.divEqually)  (repeat $ T.vertical (T.divAllConstThenCut 1) (repeat renderElement))
+		listCol matr = [ mGetCol indexCol matr | indexCol <- mGetAllIndexCol matr ]
+--T.renderNothing
 			
 		{-concat $ intersperse "\n" $ elems $ fmap (prettyShow " | " ((fromIntegral maxLength)%1) 0 ) $ listLines
 			where

@@ -2,16 +2,19 @@ module Text.PrettyShow (
 	-- * data types and type classes
 	Monoid2D(..),
 	RenderMethod(..),
-	SpaceDivide,
+	DivDistance2, DivDistance,
 	Area,Size,Pos,
+	-- * elementary render functions
+	renderNothing,
 	-- * render function combinators
 	lr, ud,
 	vertical, horizontal,
 	horizontalWith,
 	-- * space division functions
-	horiDivFromRatio, vertDivFromRatio,
-	horiDivConstAndRest, vertDivConstAndRest,
-	horiDivRestAndConst, vertDivRestAndConst,
+	div2FromRatio,div2ConstAndRest,div2RestAndConst,
+	divEqually, divAllConstThenCut,
+	
+	intersectedDistances
 ) where
 
 import Util.Vector2D
@@ -61,64 +64,51 @@ data RenderMethod src dest = RenderMeth {
 {-(^===) :: (Monoid2D repr) => RenderMethod src repr -> RenderMethod src repr -> RenderMethod src repr
 l ^=== r = lr 0.5 l r-}
 
-type SpaceDivide = Size Int -> (Size Int, Size Int)
+type Count = Int
 
-horiDivFromRatio :: (RealFrac r) => r -> SpaceDivide
-horiDivFromRatio ratio size = (sizeL,sizeR)
-	where
-		sizeL = vecMap ceiling $ vecMap fromIntegral size |*| (ratio,1)
-		sizeR = size |-| (vecX sizeL,0)
+-- |given a distance return the first part of this distance
+type DivDistance2 = Int -> Int
+-- |given a distance partition it into Count parts
+type DivDistance = Count -> Int -> [Int]
 
-vertDivFromRatio :: (RealFrac r) => r -> SpaceDivide
-vertDivFromRatio ratio size = (sizeU,sizeD)
-	where
-		sizeU = vecMap ceiling $ vecMap fromIntegral size |*| (1,ratio)
-		sizeD = size |-| (0,vecY sizeU)
+div2FromRatio :: (RealFrac r) => r -> DivDistance2
+div2FromRatio ratio dist = ceiling $ fromIntegral dist * ratio
 
+div2ConstAndRest :: Int -> DivDistance2
+div2ConstAndRest const dist = const 
 
-horiDivConstAndRest :: Int -> SpaceDivide
-horiDivConstAndRest const size =
-	((const, vecY size), sizeR)
-	where
-		sizeR = size |-| (const, vecY size)
+div2RestAndConst const dist = dist - div2ConstAndRest const dist
 
-prop_horiDivFromRatio ratio size = prop_horiDiv (horiDivFromRatio ratio) size
-prop_horiDivConstAndRest const size = prop_horiDiv (horiDivConstAndRest const) size
-prop_horiDivRestAndConst const size = prop_horiDiv (horiDivRestAndConst const) size
-prop_horiDiv divFunc size = (vecX l + vecX r) == vecX size
-	where (l, r) = (divFunc size)
-
-vertDivConstAndRest :: Int -> SpaceDivide
-vertDivConstAndRest const size = swap $ horiDivConstAndRest const (swap size)
-
-horiDivRestAndConst const = swap . horiDivConstAndRest const
-vertDivRestAndConst const = swap . (vertDivConstAndRest const)
+partitionDist2 :: DivDistance2 -> Int -> (Int,Int)
+partitionDist2 fdist dist = (l, dist - l)
+	where l = fdist dist
 
 
-horizontalWith :: (Monoid2D repr) => (Size Int -> repr) -> [RenderMethod src repr] -> RenderMethod [src] repr
-horizontalWith middle = horizontal_ concWithGap
-	where
-		concWithGap l r = l ||| middle size ||| r
-			where size = (1, max (vecY $ m2size l) (vecY $ m2size r))
+divEqually :: Count -> Int -> [Int]
+divEqually count length = case count of
+	0 -> error "distance cannot be divided by 0 elements!"
+	1 -> [length]
+	_ -> oneElLength : divEqually (count-1) (length - oneElLength)
+		where
+			oneElLength = ceiling (fromIntegral length/fromIntegral count)
 
-horizontal :: (Monoid2D repr) => [RenderMethod src repr] -> RenderMethod [src] repr
+-- precondiction: constElSize >= 0
+divAllConstThenCut :: Int -> Count -> Int -> [Int]
+divAllConstThenCut constElSize count dist = case count of
+	0 -> error "distance cannot be divided by 0 elements!"
+	1 -> [newDist]
+	_ -> (if constElSize <= dist then constElSize else newDist) :
+		divAllConstThenCut constElSize (count-1) (dist - constElSize)
+	where newDist = max 0 dist
+
+{-partitionDist :: DivDistance -> Count -> Int -> [Int]
+partitionDist fdist count dist = l ++ [dist - sum l]
+	where l = fdist count dist-}
+
+
+
+{-horizontal :: (Monoid2D repr) => [RenderMethod src repr] -> RenderMethod [src] repr
 horizontal = horizontal_ (|||)
-
-horizontal_ :: (Monoid2D repr) => (repr -> repr -> repr) -> [RenderMethod src repr] -> RenderMethod [src] repr
-horizontal_ conc renderList = case renderList of
-	[] -> RenderMeth $ \size src -> m2empty
-	(fstRender:restRender) -> 
-		let
-			fRenderFst = runRenderMeth fstRender
-		in
-			RenderMeth $ \size srcList -> case srcList of
-				[] -> m2empty
-				(fstSrc:restSrc) -> if minLength == 1
-					then fRenderFst oneElSize fstSrc
-					else fRenderFst oneElSize fstSrc `conc` (runRenderMeth $ horizontal_ conc restRender) (size |-| (vecX oneElSize,0)) restSrc
-					where
-						oneElSize = vecMap ceiling $ vecMap fromIntegral size |/| (fromIntegral $ minLength, 1)
-						minLength = length $ zip renderList srcList
 
 
 vertical :: (Monoid2D repr) => [RenderMethod src repr] -> RenderMethod [src] repr 
@@ -135,53 +125,110 @@ vertical renderMethods = case renderMethods of
 						oneElSize = vecMap ceiling $ vecMap fromIntegral size |/| (1, fromIntegral $ minLength renderMethods srcList)
 						minLength list otherList = length $ zip list otherList
 				
+horizontalConstWidth:: (Monoid2D repr) => Width -> [RenderMethod src repr] -> RenderMethod [src] repr
+horizontalConstWidth elementWidth renderList = case renderList of
+	[] -> renderNothing
+	(renderF: restRenderList) ->
+		RenderMeth $ \size srcList -> case srcList of
+			[] -> m2empty
+			(src: restSrcList) = -}
  
-lr :: (Monoid2D repr) => SpaceDivide -> RenderMethod src repr -> RenderMethod src repr -> RenderMethod (src,src) repr
-lr spacing l r = let
-	(lf,rf) = (runRenderMeth l, runRenderMeth r)
+lr :: (Monoid2D repr) => DivDistance2 -> RenderMethod srcL repr -> RenderMethod srcR repr -> RenderMethod (srcL,srcR) repr
+lr spacing l r = combine2 sizeDiv (|||) l r
+	where
+		sizeDiv (w,h) = ((wL, h), (wR, h))
+			where (wL,wR) = partitionDist2 spacing w
+	
+ud :: (Monoid2D repr) => DivDistance2 -> RenderMethod srcU repr -> RenderMethod srcD repr -> RenderMethod (srcU,srcD) repr
+ud spacing l r = combine2 sizeDiv (===) l r
+	where
+		sizeDiv (w,h) = ((w, hU), (w, hD))
+			where (hU,hD) = partitionDist2 spacing w
+
+
+type CombineRepr2 repr = repr -> repr -> repr
+type CombineMethods2 repr srcL srcR = RenderMethod srcL repr -> RenderMethod srcR repr -> RenderMethod (srcL,srcR) repr
+
+combine2 :: (Monoid2D repr) => (Size Int -> (Size Int,Size Int)) -> CombineRepr2 repr -> RenderMethod srcL repr -> RenderMethod srcR repr -> RenderMethod (srcL,srcR) repr
+combine2 sizeF combineRepr methL methR = let
+	(lf,rf) = (runRenderMeth methL, runRenderMeth methR)
 	in
 	RenderMeth $ \size (lsrc,rsrc) ->
 		let
-			(sizeL,sizeR) = spacing size
+			(sizeL,sizeR) = sizeF size
 		in
-			lf sizeL lsrc ||| rf sizeR rsrc
+			lf sizeL lsrc `combineRepr` rf sizeR rsrc
 
-ud :: (Monoid2D repr) => SpaceDivide -> RenderMethod srcU repr -> RenderMethod srcD repr -> RenderMethod (srcU,srcD) repr
-ud spacing u d = let
-	(uf,df) = (runRenderMeth u, runRenderMeth d)
-	in
-	RenderMeth $ \size (usrc,dsrc) ->
-		let
-			(sizeU,sizeD) = spacing size
-		in
-			uf sizeU usrc === df sizeD dsrc
-
-
-{-lr :: (Monoid2D repr) => Rational -> RenderMethod src repr -> RenderMethod src repr -> RenderMethod src repr
-lr ratio l r = let
-	lf = runRenderMeth l
-	rf = runRenderMeth r
-	in
-	RenderMeth $ \size' ->
-		let
-			sizeL = vecMap fromIntegral size' |*| (ratio,1)
-			sizeR = vecMap fromIntegral size' |-| (vecX sizeL,0)
-		in
-			lf (vecMap floor sizeL) ||| rf (vecMap ceiling sizeR)
-			-}
-
-{-ud :: (Monoid2D repr) => Rational -> RenderMethod src repr -> RenderMethod src repr -> RenderMethod src repr
-ud ratio u d = let
-	uf = runRenderMeth u
-	df = runRenderMeth d
-	in
-	RenderMeth $ \size ->
-		let
-			sizeU = vecMap fromIntegral size |*| (1,ratio)
-			sizeD = vecMap fromIntegral size |-| (0,vecY sizeU)
-		in
-			uf (vecMap floor sizeU) === df (vecMap ceiling sizeD)
+{-horizontalWith :: (Monoid2D repr) => (Size Int -> repr) -> [RenderMethod src repr] -> RenderMethod [src] repr
+horizontalWith middle = horizontal_ concWithGap
+	where
+		concWithGap l r = l ||| middle size ||| r
+			where size = (1, max (vecY $ m2size l) (vecY $ m2size r))
 -}
 
+printVal str x = traceShow (str ++ show x) x
 
---infixl ^===
+horizontalWith :: (Monoid2D repr) => (Size Int -> repr) -> (Count -> Int -> [Int])-> [RenderMethod src repr] -> RenderMethod [src] repr
+horizontalWith middleF divF renderList = RenderMeth $ renderM
+	where
+		--renderM :: Size Int -> [src] -> repr
+		renderM size listSrc = (runRenderMeth newRenderMeth) size newListSrc
+			where
+				--newListSrc :: [Either () src]
+				newListSrc = intersperse (Left ()) (map Right listSrc)
+		--newRenderMeth :: RenderMethod [Either () src] repr
+		newRenderMeth = horizontal (intersectedDistances divF 1) (newRenderList renderList)
+		--newRenderList :: [RenderMethod src repr] -> [RenderMethod (Either () src) repr]
+		newRenderList remainingMeths = case remainingMeths of
+			[] -> []
+			(fstMeth:otherMeths) -> (RenderMeth $ \size src -> case src of
+				Left _ -> middleF size
+				Right val -> (runRenderMeth fstMeth) size val) : newRenderList otherMeths
+
+intersectedDistances divF separatorLength count dist = intersperse separatorLength distances
+	where
+		distances = divF countElements (dist - countSeparators*separatorLength) 
+		countElements = floor $ (fromIntegral $ count+1)/2
+		countSeparators = countElements - 1
+	
+{-
+divF' count w = intersectedDistances
+	where
+		intersectedDistances = intersperse 1 distances
+		-}
+
+horizontal divF renderList = combine divF' (|||) renderList
+	 where
+	 	divF' count (w,h) = zip distances (repeat h)
+			where distances = divF count w
+vertical divF renderList = combine divF' (===) renderList
+	 where
+	 	divF' count (w,h) = zip (repeat w) distances 
+			where distances = divF count h
+
+
+combine :: (Monoid2D repr) => (Count -> Size Int -> [Size Int]) -> (repr -> repr -> repr) -> [RenderMethod src repr] -> RenderMethod [src] repr
+combine divF conc renderList = RenderMeth $ \size srcList ->
+	let
+		count = {-printVal "combine count: " $-} saveMinimumLength renderList srcList
+	in 
+		--divF count size
+		(runRenderMeth $ combine_ (divF count size) conc renderList) size srcList
+	where
+		saveMinimumLength l r = length $ zip l r
+
+-- precond: listSize = maximum (length renderList, length srcList)
+combine_ :: (Monoid2D repr) => [Size Int] -> (repr -> repr -> repr) -> [RenderMethod src repr] -> RenderMethod [src] repr
+combine_ listSize conc renderList = {-trace "calling combine_" $-} if count == 0 then (error "nothing to print") else
+	case renderList of
+		(fstRender:restRender) -> RenderMeth $ \size srcList -> case srcList of
+			[] -> error "to few sources"
+			(fstSrc:restSrc) -> if count == 1
+				then ((runRenderMeth $ fstRender) (head listSize) fstSrc)
+				else ((runRenderMeth $ fstRender) (head listSize) fstSrc) `conc`
+					((runRenderMeth $ combine_ (tail listSize) conc restRender) size restSrc)
+	where count = {-printVal "count: " $-} length listSize
+
+renderNothing :: (Monoid2D repr) => RenderMethod src repr
+renderNothing = RenderMeth $ \size src -> m2empty
+

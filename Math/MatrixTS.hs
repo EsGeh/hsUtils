@@ -67,8 +67,13 @@ instance (Show t) => Show (Matrix countRow countCol t) where
 	show m@(M array) = show $ (T.runRenderMeth $ renderMeth) (0,0) listCol
 		where
 			renderMeth :: (Show t) => T.RenderMethod [[t]] T.TextBlock
-			renderMeth = T.horizontalWith (T.filledBlock "|") (repeat (T.vertical (repeat T.justBlock)))
+			renderMeth = T.horizontalWith (T.filledBlock "|") T.divEqually (repeat (T.vertical T.divEqually (repeat T.justBlock)))
 			listCol = [ mGetCol indexCol m | indexCol <- mGetAllIndexCol m ]
+	{-show m@(M array) = show $ (T.runRenderMeth $ renderMeth) (0,0) listCol
+		where
+			renderMeth :: (Show t) => T.RenderMethod [[t]] T.TextBlock
+			renderMeth = T.horizontalWith (T.filledBlock "|") (repeat (T.vertical (repeat T.justBlock)))
+			listCol = [ mGetCol indexCol m | indexCol <- mGetAllIndexCol m ]-}
 			
 		{-concat $ intersperse "\n" $ elems $ fmap (prettyShow " | " ((fromIntegral maxLength)%1) 0 ) $ listLines
 			where

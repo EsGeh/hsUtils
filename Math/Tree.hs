@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Math.Tree(
 	-- * data types
 	Tree,
@@ -9,7 +10,8 @@ module Math.Tree(
 	-- * setters
 	addChild,delChildFromIndex,mapOverChildren,applyOnChildren,
 	-- * serializations
-	pShow
+	renderTree,
+	--pShow
 
 )
 where
@@ -92,24 +94,26 @@ renderTree maxDepth renderElement = if maxDepth <= 0
 		renderNothing = RenderMeth $ \size val -> m2empty
 		--renderThis :: RenderMethod (t, [Tree t]) TextBlock
 		renderThis = ud
-			(vertDivConstAndRest 1)
+			(div2ConstAndRest 1)
 			renderElement
 			renderChildren
 			 
+		--renderChildren :: RenderMethod [Tree t] TextBlock
 		renderChildren = horizontal
+			(divEqually)
 			(repeat (renderTree (maxDepth-1) renderElement))
 		--renderChildren = horizontal (repeat force)
 
 
 -- |this method should give a nice text serialisation of the tree:
-pShow :: (Show t) => Int -> Width -> Tree t -> TextBlock 
+{-pShow :: (Show t) => Int -> Width -> Tree t -> TextBlock 
 pShow maxDepth width (Node params children) = if maxDepth <= 0
 	then m2empty
 	else
 		(runRenderMeth $ divToLinesWE "..") (width,1) params === (runRenderMeth $ renderChildren) (width,10) (map (pShow (maxDepth-1) oneChildWidth) children)
 	where
 		oneChildWidth = floor $ fromIntegral width / fromIntegral (length children)
-		renderChildren = horizontal (repeat force)
+		renderChildren = horizontal (repeat force)-}
 
 	
 -- this method should give a nice text serialisation of the tree:

@@ -1,4 +1,5 @@
 module Text.TextBlock(
+	module Text.PrettyShow,
 	-- * data types
 	TextBlock(),
 	-- ** nice aliases
@@ -9,10 +10,13 @@ module Text.TextBlock(
 	-- * basic render methods
 	force,forceWE,divToLinesWE,
 	justBlock
-)where
+) where
 
 import Text.PrettyShow
+import Text.TextBlockInternal
 import Util.Vector2D
+
+import Test.QuickCheck
 
 import Data.List hiding(lines)
 import Control.Monad.State
@@ -42,8 +46,6 @@ instance Show TextBlock where
 {-testRenderMeth = ud (vertSpaceDiv 0.5) force force 
 testRenderMeth2 = lr (horiSpaceDiv 0.5) justBlock justBlock 
 testRenderMeth3 = lr (horiSpaceDiv 0.5) justBlock force -}
-text1 = "Hallo\nWelt\nDu\nIdiot"
-text2 = "Bli\nBla\nBlubb"
 
 --testHorizontal = horizontal (repeat force)
 
@@ -65,7 +67,7 @@ divToLinesWE ell = RenderMeth $ \size val -> textBlockAutoNewLineWE size ell (sh
 
 -- |just forces something into the given size, cut if too big, print ellipsis
 forceWE :: (Show a) => Ellipsis -> Ellipsis -> RenderMethod a TextBlock
-forceWE ellAtLineEnding ellAtLastLine= RenderMeth $ \size val -> textBlockTruncWE size ellAtLineEnding ellAtLastLine (show val)
+forceWE ellAtLineEnding ellAtLastLine= RenderMeth $ \size val -> textBlockTruncWE ellAtLineEnding ellAtLastLine size (show val)
 
 
 filledBlock :: String -> Size Int -> TextBlock
@@ -76,14 +78,27 @@ filledBlock str (width,height) = TextBlock $ take height $ map (take width) $ re
 -- functions on text blocks:
 ---------------------------------------------------------------------------
 
-type Ellipsis = String
-type Line = String
+{-prop_textBlock_width text=
+	-- all lines should be as long as the longest one:
+	prop_allLinesSameLength 
+	{-(and $ (map (==longestLine) . map length) textBlockLines)
+	where
+		longestLine = maximum $ map length $ textBlockLines
+		textBlockLines = P.lines $ show $ textBlock text-}
+prop_textBlockTrunc text size = (vecY size >=0 && vecX size >=0) `implies`
+	prop_textBlock_width text && (m2size $ textBlockTrunc size text) == size-}
+prop_m2size text = 
+	(m2size $ textBlock text) == ((saveMax . map length . P.lines) text, (length . P.lines) text)
+	where
+		saveMax list = case list of
+			[] -> 0
+			_ -> maximum list
 
 textBlock = normalize . TextBlock . P.lines
-textBlockTruncWE size ellAtLineEnding ellAtTextEnding str = textMap (linesSetSizeWE size ellAtLineEnding ellAtTextEnding) $ textBlock str
+textBlockTruncWE ellAtLineEnding ellAtTextEnding size str = textMap (linesSetSizeWE ellAtLineEnding ellAtTextEnding size) $ textBlock str
 textBlockTrunc size str = textMap (linesSetSize size) $ textBlock str
 
-textBlockAutoNewLineWE size ell str = textMap (linesAutoNewLine size ell ) $ textBlock str
+textBlockAutoNewLineWE size ell str = textMap (linesAutoNewLineWE size ell ) $ textBlock str
 {-textBlockAutoNewLineWE size ellAtLineEnding ellAtTextEnding str = textMap (linesSetSizeWE size ellAtLineEnding ellAtTextEnding . linesAutoNewLineCareful size "" ) $ textBlock str-}
 --textBlock size str = autoNewLine size 
 fromTextBlock (TextBlock lines) = unlines $ linesHomWidth lines
@@ -104,103 +119,6 @@ normalize = textMap linesHomWidth
 textMap f (TextBlock lines) = TextBlock $ f lines
 
 
----------------------------------------------------------------------------
--- functions on lists of lines
----------------------------------------------------------------------------
-linesHomWidth :: [String] -> [String]
-linesHomWidth lines = linesSetWidth (maximum $ map length lines) lines
-
- -- experimental!!
-linesAutoNewLineCareful :: Size Int -> Ellipsis -> [Line] -> [Line]
-linesAutoNewLineCareful size ell = divNice . join . map words -- . Prelude.lines
-	where
-		divNice :: [String] -> [String]
-		divNice words = snd $ snd $ runState (divNiceM words) $ ((0,0), [])
-
-		divNiceM :: [String] -> State (Pos Int,[String]) [String]
-		divNiceM words = return words >>= \remaining -> do
-			if (not . null) remaining
-				then fillLine size remaining >>= divNiceM 
-				else return remaining
-
--- experimental!! 
-linesAutoNewLine :: Size Int -> Ellipsis -> [Line] -> [Line]
-linesAutoNewLine size ell = divNice . concAll
-	where
-		concAll = foldr1 concLines
-		concLines l r = dropWhileEnd (==' ') l ++ " " ++ dropWhile (==' ') r
-		--divNice str = [str]
-		--divNice :: String -> [Line]
-		divNice str = fst $ divNice_ [] str
-		divNice_ :: [Line] -> String -> ([Line],String)
-		divNice_ yetParsed str = (newParsed,newRest)
-			where
-				(newParsed,newRest) =
-					if null str
-					then (yetParsed,str)
-					else
-						if length yetParsed >= (vecY size)
-						then (appendEllipse (vecX size) ell yetParsed, str)
-						else (\(lastLine,newRest) -> divNice_ (yetParsed ++ [lastLine]) newRest) $ appendAsMuchAsPossibleToLine (vecX size) "" str
-
-appendEllipse :: Int -> Ellipsis -> [Line] -> [Line]
-appendEllipse width ell yetParsed = init yetParsed ++ [appendEllipsisToLine width (last yetParsed) ell]
--- |
-appendAsMuchAsPossibleToLine :: Int -> Line -> String -> (Line,String)
-appendAsMuchAsPossibleToLine width line append = splitAt width (line ++ append)
-
--- | guaranties: result will have length == width, 
--- result will end with the ellipse (if length ell <= width)
-appendEllipsisToLine width line ell = take width $ beginning ++ ell
-	where
-		beginning = take (width-length ell) $ line ++ repeat ' '
-
--- the suffix "WE" is for "with ellipsis"
-
-linesSetSize size = linesSetHeight (vecY size) . linesSetWidth (vecX size)
-linesSetSizeWE size ellAtLineEnding ellAtTextEnding = linesSetHeightWE (vecY size) ellAtTextEnding . linesSetWidthWE (vecX size) ellAtLineEnding
-
-linesSetWidthWE width ell = map manipulateLine
-	where
-		manipulateLine line = if length line <= width
-			then take width $ line ++ (repeat ' ')
-			else (take (width-length ell) line) ++ ell
-
-linesSetHeightWE height ell lines =
-	if length lines <= height
-	then linesSetHeight height lines
-	else take (height-1) (linesSetHeight height lines) ++ [ell]
-
-linesSetHeight :: Int -> [String] -> [String]
-linesSetHeight height lines' = take height $ lines' ++ (repeat "")
-
-linesSetWidth :: Int -> [String] -> [String]
-linesSetWidth width = map fillWithSpaces
-	where
-		fillWithSpaces line = take width $ line ++  (repeat ' ')
-
-
--- internal helper functions:
-
-stateLoop :: (Monad m) => (m a -> Bool) -> (a -> m a) -> m a -> m a
-stateLoop cond mf s = if cond s
-	then stateLoop cond mf (s >>= mf)
-	else s
-
--- remaining -> State( \(pos,yetParsed) -> (remaining, (pos,yetParsed)) )
-fillLine :: Size Int -> [String] -> State (Pos Int, [String]) [String]
-fillLine size (nextWord:remainingWords) = state $ \(pos, yetParsed') ->
-	let
-		yetParsed = if null yetParsed' then [""] else yetParsed'
-		lastLinePlusNextWord = last yetParsed ++ nextWord
-		
-	in 
-		if (length lastLinePlusNextWord <= vecX size || last yetParsed == []) -- line not yet full
-		then ( remainingWords,
-			(pos |+| (length nextWord,0), init yetParsed ++ [(last yetParsed ++ nextWord)] ) )
-		else ( remainingWords,
-			((length nextWord, vecY pos +1 ), yetParsed ++ [nextWord]) )
-fillLine size [] = state $ \(pos, yetParsed) -> ([], (pos,yetParsed))
 
 
 
