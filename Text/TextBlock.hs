@@ -1,21 +1,30 @@
+{-|This module mainly gives you two things:
+
+1. the data type 'TextBlock', that is used to represent blocks of text that fit into a specific size.
+
+2. some basic render functions that render into 'TextBlock's (see "Text.TextBlock.RenderMethods")
+
+usually you don't want to create textBlocks by hand, but use the submodule "Text.TextBlock.RenderMethods" instead, and combine new methods from them using the combinators defined in "Text.PrettyShow".
+-}
 module Text.TextBlock(
 	module Text.PrettyShow,
 	-- * data types
 	TextBlock(),
 	-- ** nice aliases
 	Ellipsis,Line,
-	-- * standard combinator param for Textblocks:
-	combPStd, 
 	-- * pseudo constructors
 	textBlock,textBlockTrunc,textBlockTruncWE,textBlockAutoNewLineWE,
 	filledBlock,
-	-- * basic render methods
+	{--- * basic render methods
 	force,forceWE,divToLinesWE,
-	justBlock
+	justBlock,-}
+	-- * standard combinator param for Textblocks:
+	combPStd, 
 ) where
 
 import Text.PrettyShow
 import Text.TextBlockInternal
+--import Text.TextBlock.RenderMethods
 import Util.Vector2D
 
 import Test.QuickCheck
@@ -53,27 +62,8 @@ testRenderMeth3 = lr (horiSpaceDiv 0.5) justBlock force -}
 
 combPStd = RenderCombP{ divF=divEqually, fillF= filledBlock " " }
 
----------------------------------------------------------------------------
--- RenderMethods using TextBlocks:
----------------------------------------------------------------------------
 
--- |ignores the given size, and renders taking the size needed
-justBlock :: (Show a) => RenderMethod a TextBlock
-justBlock = RenderMeth $ \size val -> textBlock (show val)
-
--- |just forces something into the given size, cut if too big
-force :: (Show a) => RenderMethod a TextBlock
-force = RenderMeth $ \size val -> textBlockTrunc size (show val)
-
--- |freely divide into lines, cut using ellipsis, if too big:
-divToLinesWE :: (Show a) => Ellipsis -> RenderMethod a TextBlock
-divToLinesWE ell = RenderMeth $ \size val -> textBlockAutoNewLineWE size ell (show val)
-
--- |just forces something into the given size, cut if too big, print ellipsis
-forceWE :: (Show a) => Ellipsis -> Ellipsis -> RenderMethod a TextBlock
-forceWE ellAtLineEnding ellAtLastLine= RenderMeth $ \size val -> textBlockTruncWE ellAtLineEnding ellAtLastLine size (show val)
-
-
+-- |fills a block using 'str' as a tile. The result should have the 'size' given as second parameter
 filledBlock :: String -> Size Int -> TextBlock
 filledBlock str (width,height) = TextBlock $ take height $ map (take width) $ repeat (concat $ repeat str)
 
@@ -98,12 +88,15 @@ prop_m2size text =
 			[] -> 0
 			_ -> maximum list
 
+-- |divide a string onto lines using the newline character (\'\n\') as seperator
 textBlock = normalize . TextBlock . P.lines
+-- |same as 'textBlockTrunc', but also inserts ellipsis for a line that is too long, or in the last line, if the result would be too high
 textBlockTruncWE ellAtLineEnding ellAtTextEnding size str = textMap (linesSetSizeWE ellAtLineEnding ellAtTextEnding size) $ textBlock str
+-- |same as 'textBlock', but cuts the result to make it fit into the 'size'
 textBlockTrunc size str = textMap (linesSetSize size) $ textBlock str
 
+-- |behaves as follows: first concatenates the 'str' in a way as if the whole text has been written into one line (todo: example). Then divide the result to make it fit into the given 'size', splitting the text if a line is full.
 textBlockAutoNewLineWE size ell str = textMap (linesAutoNewLineWE size ell ) $ textBlock str
-{-textBlockAutoNewLineWE size ellAtLineEnding ellAtTextEnding str = textMap (linesSetSizeWE size ellAtLineEnding ellAtTextEnding . linesAutoNewLineCareful size "" ) $ textBlock str-}
 --textBlock size str = autoNewLine size 
 fromTextBlock (TextBlock lines) = unlines $ linesHomWidth lines
 

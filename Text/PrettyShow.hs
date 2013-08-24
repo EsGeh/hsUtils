@@ -1,10 +1,35 @@
+{-| notes about "Text.PrettyShow"
+
+1. Render functions
+
+* what is a render function? It calculates a representation from some data.
+
+* The representation should be an instance of the class 'Monoid2D', so it has some size (see 'm2size'). The size of the representation should not be arbitrary, so a 'RenderMethod' takes the desired size as parameter. (see 'RenderMethod' again)
+
+* So any 'RenderMethod' should fulfill the following law:
+	TODO
+	Example: TODO
+
+2. render function combinators
+
+Now about representations: A representation should be an instance of 'Monoid2D', so it can be concatenated horizontally ('|||') and vertically ('===')
+
+If a render function fullfills the law mentioned above, new renderFunctions can be created of them (see 'lr','ud', ...)
+All these combinators should guarantee, that the result of their application is
+
+-}
+
 module Text.PrettyShow (
 	-- * data types and type classes
+	-- ** basic
 	Monoid2D(..),
 	RenderMethod(..),
-	RenderCombParam(..),
+	-- ** distance partition functions
 	DivDistance2, DivDistance,
-	Area,Size,Pos,
+	-- ** bundle of settings to increase lazyness
+	RenderCombParam(..),
+	-- ** simple type synonyms
+	{-Area,-}Size,Pos,
 	-- * elementary render functions
 	renderNothing,
 	-- * render function combinators
@@ -45,18 +70,30 @@ posY = vecY
 sizeX = vecX
 sizeY = vecY
 
-type Area a = (Pos a, Size a)
+--type Area a = (Pos a, Size a)
 size = snd
 pos = fst
 
--- |things that can be concatenated in two ways. (|||) is for horizontal, (===) for vertical concatenation
+{- |this class is used for results of a render function. It represents things that
+
+* have size
+
+* can be concatenated in two ways. (|||) is for horizontal, (===) for vertical concatenation
+-}
 class Monoid2D a where
-	(|||) :: a -> a -> a -- concatenate horizontal ( "Block | Block")
-	(===) :: a -> a -> a -- concatenate vertically ( "Block / Block")
+	-- |concatenate horizontal ( "Block | Block")
+	--
+	-- law: (m2size l) |+| (m2size r) == m2size ( l ||| r)
+	(|||) :: a -> a -> a 
+	-- |concatenate vertically ( "Block / Block")
+	--
+	-- law: (m2size l) |+| (m2size r) == m2size ( l === r)
+	(===) :: a -> a -> a
 	m2size :: a -> Size Int
+	-- |law: m2size m2empty == (0,0)
 	m2empty :: a
 
--- |this type represents a method (let us call it a function) to create some data of type t, that fills a "frame" of some given size
+-- |this type represents a method (let us call it a function) to create some data of type t, that fills a frame of some given "size"
 data RenderMethod src dest = RenderMeth {
 	runRenderMeth :: Size Int -> src -> dest
 }
@@ -67,9 +104,10 @@ l ^=== r = lr 0.5 l r-}
 
 type Count = Int
 
--- |given a distance return the first part of this distance
+-- |given a distance return a partition of this distance into two distances
 type DivDistance2 = Int -> (Int,Int)
--- |given a distance partition it into Count parts
+-- |given a distance partition it into \"Count\" parts
+-- precondition: \"Count\" > 0
 type DivDistance = Count -> Int -> [Int]
 
 -- |takes a piece from a distance given
@@ -92,8 +130,8 @@ divDistFunc2FromPieceF fDist dist = (l, dist - l)
 	where l = fDist dist
 
 
--- divide a distance into a number of distances
--- in case 'count' is 0
+-- |divide a distance into a number of distances
+-- precondition: count > 0 (calls exception, if not fulfilled)
 divEqually :: DivDistance
 divEqually count dist = case count of
 	0 -> error "distance cannot be divided by 0 elements!"
@@ -102,6 +140,8 @@ divEqually count dist = case count of
 		where
 			oneElLength = ceiling (fromIntegral dist/fromIntegral count)
 
+-- |divide a distance into a number of distances
+-- precondition: count > 0 (calls exception, if not fulfilled)
 -- precondiction: constElSize >= 0
 divAllConstThenCut :: Int -> DivDistance
 divAllConstThenCut constElSize count dist = case count of
