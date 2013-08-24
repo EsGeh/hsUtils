@@ -137,14 +137,14 @@ m listLines = if (isValid listLines)
 		width = length $ listLines !! 0
 -}
 
--- |creates a matrix from a list of lists. If the input is invalid, 'error' is called
 {-
+-- |creates a matrix from a list of lists. If the input is invalid, 'error' is called
 mUnsafe :: [[t]] -> Matrix t
 mUnsafe listLines = fromMaybe (error "failed to create Matrix from list") $ m listLines
 -}
 
--- |create a square matrix
-{-mSqr :: [[t]] -> Maybe (Matrix t)
+{--- |create a square matrix
+mSqr :: [[t]] -> Maybe (Matrix t)
 mSqr = m-}
 	-- to do: check if input makes up a valid square matrix
 -- |returns a tuple representing the size of the matrix
