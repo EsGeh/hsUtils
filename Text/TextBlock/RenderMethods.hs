@@ -1,6 +1,6 @@
 -- | basic renderMethods using Textblocks
 module Text.TextBlock.RenderMethods(
-	force,forceWE,divToLinesWE,
+	force,forceWE,autoNewLineWE,
 	justBlock,
 ) where
 
@@ -20,8 +20,8 @@ force :: (Show a) => RenderMethod a TextBlock
 force = RenderMeth $ \size val -> textBlockTrunc size (show val)
 
 -- |freely divide into lines, cut using ellipsis, if too big:
-divToLinesWE :: (Show a) => Ellipsis -> RenderMethod a TextBlock
-divToLinesWE ell = RenderMeth $ \size val -> textBlockAutoNewLineWE size ell (show val)
+autoNewLineWE :: (Show a) => Ellipsis -> RenderMethod a TextBlock
+autoNewLineWE ell = RenderMeth $ \size val -> textBlockAutoNewLineWE size ell (show val)
 
 -- |just forces something into the given size, cut if too big, print ellipsis
 forceWE :: (Show a) => Ellipsis -> Ellipsis -> RenderMethod a TextBlock

@@ -1,6 +1,6 @@
 {-| notes about "Text.PrettyShow"
 
-1. Render functions
+\1. Render functions
 
 * what is a render function? It calculates a representation from some data.
 
@@ -10,11 +10,15 @@
 	TODO
 	Example: TODO
 
-2. render function combinators
+if you have some basic render functions, you can use render function combinators to create new Rendermethods to create new ones:
 
-Now about representations: A representation should be an instance of 'Monoid2D', so it can be concatenated horizontally ('|||') and vertically ('===')
+\2. render function combinators
 
-If a render function fullfills the law mentioned above, new renderFunctions can be created of them (see 'lr','ud', ...)
+Now about representations:
+
+* A representation should be an instance of 'Monoid2D', so it can be concatenated horizontally ('|||') and vertically ('===')
+
+* If a render function fullfills the law mentioned above, new renderFunctions can be created of them (see 'lr','ud', ...)
 All these combinators should guarantee, that the result of their application is
 
 -}
