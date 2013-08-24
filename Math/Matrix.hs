@@ -69,7 +69,7 @@ instance (Show t) => Show (Matrix t) where
 	show m@(M array) = show $ (T.runRenderMeth $ renderMeth) (0,0) listCol
 		where
 			renderMeth :: (Show t) => T.RenderMethod [[t]] T.TextBlock
-			renderMeth = T.horizontalWith (T.filledBlock "|") T.divEqually (repeat (T.vertical T.divEqually (repeat T.justBlock)))
+			renderMeth = horizontalWith (filledBlock "|") combPStd (repeat (vertical combPStd (repeat T.justBlock))) 
 			listCol = [ mGetCol indexCol m | indexCol <- mGetAllIndexCol m ]
 
 
@@ -77,7 +77,7 @@ renderMatr :: T.RenderMethod t T.TextBlock -> T.RenderMethod (Matrix t) T.TextBl
 renderMatr renderElement = RenderMeth $ \size matr -> (runRenderMeth $ renderListCol) size (listCol matr)
 	where
 		--renderListCol :: (Show t) => RenderMethod [[t]] TextBlock
-		renderListCol = T.horizontalWith (filledBlock "|") (T.divEqually)  (repeat $ T.vertical (T.divAllConstThenCut 1) (repeat renderElement))
+		renderListCol = horizontalWith (filledBlock "|") combPStd  (repeat $ vertical combPStd{ divF = (T.divAllConstThenCut 1) } (repeat renderElement))
 		listCol matr = [ mGetCol indexCol matr | indexCol <- mGetAllIndexCol matr ]
 --T.renderNothing
 			

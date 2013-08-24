@@ -4,6 +4,8 @@ module Text.TextBlock(
 	TextBlock(),
 	-- ** nice aliases
 	Ellipsis,Line,
+	-- * standard combinator param for Textblocks:
+	combPStd, 
 	-- * pseudo constructors
 	textBlock,textBlockTrunc,textBlockTruncWE,textBlockAutoNewLineWE,
 	filledBlock,
@@ -48,6 +50,8 @@ testRenderMeth2 = lr (horiSpaceDiv 0.5) justBlock justBlock
 testRenderMeth3 = lr (horiSpaceDiv 0.5) justBlock force -}
 
 --testHorizontal = horizontal (repeat force)
+
+combPStd = RenderCombP{ divF=divEqually, fillF= filledBlock " " }
 
 ---------------------------------------------------------------------------
 -- RenderMethods using TextBlocks:

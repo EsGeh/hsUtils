@@ -2,6 +2,7 @@ module Text.PrettyShow (
 	-- * data types and type classes
 	Monoid2D(..),
 	RenderMethod(..),
+	RenderCombParam(..),
 	DivDistance2, DivDistance,
 	Area,Size,Pos,
 	-- * elementary render functions
@@ -67,33 +68,42 @@ l ^=== r = lr 0.5 l r-}
 type Count = Int
 
 -- |given a distance return the first part of this distance
-type DivDistance2 = Int -> Int
+type DivDistance2 = Int -> (Int,Int)
 -- |given a distance partition it into Count parts
 type DivDistance = Count -> Int -> [Int]
 
-div2FromRatio :: (RealFrac r) => r -> DivDistance2
-div2FromRatio ratio dist = ceiling $ fromIntegral dist * ratio
+-- |takes a piece from a distance given
+type PieceFromDist = Int -> Int
 
-div2ConstAndRest :: Int -> DivDistance2
-div2ConstAndRest const dist = const 
+div2FromRatio r = divDistFunc2FromPieceF (pieceFromRatio r)
+div2ConstAndRest c = divDistFunc2FromPieceF (pieceConst c)
+div2RestAndConst c = divDistFunc2FromPieceF (pieceConstFromRight c)
 
-div2RestAndConst const dist = dist - div2ConstAndRest const dist
+pieceFromRatio :: (RealFrac r) => r -> PieceFromDist
+pieceFromRatio ratio dist = ceiling $ fromIntegral dist * ratio
 
-partitionDist2 :: DivDistance2 -> Int -> (Int,Int)
-partitionDist2 fdist dist = (l, dist - l)
-	where l = fdist dist
+pieceConst :: Int -> PieceFromDist
+pieceConst const dist = const 
+
+pieceConstFromRight const dist = dist - pieceConst const dist
+
+divDistFunc2FromPieceF :: PieceFromDist -> DivDistance2
+divDistFunc2FromPieceF fDist dist = (l, dist - l)
+	where l = fDist dist
 
 
-divEqually :: Count -> Int -> [Int]
-divEqually count length = case count of
+-- divide a distance into a number of distances
+-- in case 'count' is 0
+divEqually :: DivDistance
+divEqually count dist = case count of
 	0 -> error "distance cannot be divided by 0 elements!"
-	1 -> [length]
-	_ -> oneElLength : divEqually (count-1) (length - oneElLength)
+	1 -> [dist]
+	_ -> oneElLength : divEqually (count-1) (dist - oneElLength)
 		where
-			oneElLength = ceiling (fromIntegral length/fromIntegral count)
+			oneElLength = ceiling (fromIntegral dist/fromIntegral count)
 
 -- precondiction: constElSize >= 0
-divAllConstThenCut :: Int -> Count -> Int -> [Int]
+divAllConstThenCut :: Int -> DivDistance
 divAllConstThenCut constElSize count dist = case count of
 	0 -> error "distance cannot be divided by 0 elements!"
 	1 -> [newDist]
@@ -134,16 +144,16 @@ horizontalConstWidth elementWidth renderList = case renderList of
 			(src: restSrcList) = -}
  
 lr :: (Monoid2D repr) => DivDistance2 -> RenderMethod srcL repr -> RenderMethod srcR repr -> RenderMethod (srcL,srcR) repr
-lr spacing l r = combine2 sizeDiv (|||) l r
+lr divF l r = combine2 sizeDiv (|||) l r
 	where
 		sizeDiv (w,h) = ((wL, h), (wR, h))
-			where (wL,wR) = partitionDist2 spacing w
+			where (wL,wR) = divF w
 	
 ud :: (Monoid2D repr) => DivDistance2 -> RenderMethod srcU repr -> RenderMethod srcD repr -> RenderMethod (srcU,srcD) repr
-ud spacing l r = combine2 sizeDiv (===) l r
+ud divF l r = combine2 sizeDiv (===) l r
 	where
 		sizeDiv (w,h) = ((w, hU), (w, hD))
-			where (hU,hD) = partitionDist2 spacing w
+			where (hU,hD) = divF w
 
 
 type CombineRepr2 repr = repr -> repr -> repr
@@ -168,8 +178,8 @@ horizontalWith middle = horizontal_ concWithGap
 
 printVal str x = traceShow (str ++ show x) x
 
-horizontalWith :: (Monoid2D repr) => (Size Int -> repr) -> (Count -> Int -> [Int])-> [RenderMethod src repr] -> RenderMethod [src] repr
-horizontalWith middleF divF renderList = RenderMeth $ renderM
+horizontalWith :: (Monoid2D repr) => FillFunction repr -> RenderCombParam repr -> [RenderMethod src repr] -> RenderMethod [src] repr
+horizontalWith middleF renderCombP renderList = RenderMeth $ renderM
 	where
 		--renderM :: Size Int -> [src] -> repr
 		renderM size listSrc = (runRenderMeth newRenderMeth) size newListSrc
@@ -177,7 +187,7 @@ horizontalWith middleF divF renderList = RenderMeth $ renderM
 				--newListSrc :: [Either () src]
 				newListSrc = intersperse (Left ()) (map Right listSrc)
 		--newRenderMeth :: RenderMethod [Either () src] repr
-		newRenderMeth = horizontal (intersectedDistances divF 1) (newRenderList renderList)
+		newRenderMeth = horizontal renderCombP{ divF=(intersectedDistances (divF renderCombP) 1) } (newRenderList renderList)
 		--newRenderList :: [RenderMethod src repr] -> [RenderMethod (Either () src) repr]
 		newRenderList remainingMeths = case remainingMeths of
 			[] -> []
@@ -197,23 +207,34 @@ divF' count w = intersectedDistances
 		intersectedDistances = intersperse 1 distances
 		-}
 
-horizontal divF renderList = combine divF' (|||) renderList
+horizontal :: (Monoid2D repr) => RenderCombParam repr -> [RenderMethod src repr] -> RenderMethod [src] repr
+horizontal RenderCombP{fillF=fillF, divF= divF} renderList = combine fillF divF' (|||) renderList
 	 where
 	 	divF' count (w,h) = zip distances (repeat h)
 			where distances = divF count w
-vertical divF renderList = combine divF' (===) renderList
+vertical :: (Monoid2D repr) => RenderCombParam repr -> [RenderMethod src repr] -> RenderMethod [src] repr
+vertical RenderCombP{fillF=fillF, divF= divF} renderList = combine fillF divF' (===) renderList
 	 where
 	 	divF' count (w,h) = zip (repeat w) distances 
 			where distances = divF count h
 
+data RenderCombParam repr = RenderCombP{
+	divF :: Count -> Int -> [Int], -- space division function
+	fillF :: Size Int -> repr -- function to call if there is nothing to render
+}
 
-combine :: (Monoid2D repr) => (Count -> Size Int -> [Size Int]) -> (repr -> repr -> repr) -> [RenderMethod src repr] -> RenderMethod [src] repr
-combine divF conc renderList = RenderMeth $ \size srcList ->
+type FillFunction repr = Size Int -> repr
+
+--rndrCombPStd = RenderCombP{ divF = divEqually, fillF
+
+combine :: (Monoid2D repr) => FillFunction repr -> (Count -> Size Int -> [Size Int]) -> (repr -> repr -> repr) -> [RenderMethod src repr] -> RenderMethod [src] repr
+combine fillF divF conc renderList = RenderMeth $ \size srcList ->
 	let
 		count = {-printVal "combine count: " $-} saveMinimumLength renderList srcList
-	in 
-		--divF count size
-		(runRenderMeth $ combine_ (divF count size) conc renderList) size srcList
+	in
+		case count of
+			0 -> fillF size
+			_ -> (runRenderMeth $ combine_ (divF count size) conc renderList) size srcList
 	where
 		saveMinimumLength l r = length $ zip l r
 

@@ -5,16 +5,18 @@ import Test.QuickCheck
 text1 = "Hallo\nWelt\nDu\nIdiot"
 text2 = "Bli\nBla\nBlubb"
 
+fillSpaces = filledBlock " "
+
 test_horizontalWith =
-	let render = horizontalWith (filledBlock "|") divEqually (repeat $ forceWE ".." "..")
+	let render = horizontalWith (filledBlock "|") combPStd (repeat $ forceWE ".." "..")
 	in
-		(runRenderMeth render) (1,4) [textBlock text2,textBlock text1]
+		(runRenderMeth render) (4,4) [textBlock text2,textBlock text1]
 test_horizontal =
-	let render = horizontal divEqually (repeat $ forceWE ".." "..")
+	let render = horizontal combPStd (repeat $ forceWE ".." "..")
 	in
 		(runRenderMeth render) (8,4) [textBlock text2,textBlock text1]
 test_vertical =
-	let render = vertical divEqually (repeat $ forceWE ".." "..")
+	let render = vertical combPStd (repeat $ forceWE ".." "..")
 	in
 		(runRenderMeth render) (8,4) [textBlock text2,textBlock text1]
 
@@ -37,7 +39,7 @@ prop_divDist2 divFunc dist = (divFunc dist >= 0) && (divFunc dist <= dist)
 
 {-prop_spacePartition2 divFunc dist = (l + r == dist)
 	where (l,r) = (partitionDist2 divFunc) dist-}
-prop_divAllConstThenCut const count dist = (const >=0) `implies` prop_div (divAllConstThenCut constthe first ) count dist
+prop_divAllConstThenCut const count dist = (const >=0) `implies` prop_div (divAllConstThenCut const ) count dist
 prop_divEqually = prop_div divEqually
 
 prop_div divFunc count dist =

@@ -25,7 +25,7 @@ module Math.MatrixTS(
 	) where
 --import Card as Unary
 import Util.Vector2D
-import qualified Text as T
+import Text
 
 import Util.Card.Card
 import Util.Card.Unary
@@ -64,15 +64,15 @@ type Height = Int
 ---------------------------------------------------------------------------------------
 -- | show the matrix in a nice table like representation
 instance (Show t) => Show (Matrix countRow countCol t) where
-	show m@(M array) = show $ (T.runRenderMeth $ renderMeth) (0,0) listCol
+	show m@(M array) = show $ (runRenderMeth $ renderMeth) (0,0) listCol
 		where
-			renderMeth :: (Show t) => T.RenderMethod [[t]] T.TextBlock
-			renderMeth = T.horizontalWith (T.filledBlock "|") T.divEqually (repeat (T.vertical T.divEqually (repeat T.justBlock)))
+			renderMeth :: (Show t) => RenderMethod [[t]] TextBlock
+			renderMeth = horizontalWith (filledBlock "|") combPStd (repeat (vertical combPStd (repeat justBlock)))
 			listCol = [ mGetCol indexCol m | indexCol <- mGetAllIndexCol m ]
-	{-show m@(M array) = show $ (T.runRenderMeth $ renderMeth) (0,0) listCol
+	{-show m@(M array) = show $ (runRenderMeth $ renderMeth) (0,0) listCol
 		where
-			renderMeth :: (Show t) => T.RenderMethod [[t]] T.TextBlock
-			renderMeth = T.horizontalWith (T.filledBlock "|") (repeat (T.vertical (repeat T.justBlock)))
+			renderMeth :: (Show t) => RenderMethod [[t]] TextBlock
+			renderMeth = horizontalWith (filledBlock "|") (repeat (vertical (repeat justBlock)))
 			listCol = [ mGetCol indexCol m | indexCol <- mGetAllIndexCol m ]-}
 			
 		{-concat $ intersperse "\n" $ elems $ fmap (prettyShow " | " ((fromIntegral maxLength)%1) 0 ) $ listLines

@@ -99,8 +99,7 @@ renderTree maxDepth renderElement = if maxDepth <= 0
 			renderChildren
 			 
 		--renderChildren :: RenderMethod [Tree t] TextBlock
-		renderChildren = horizontal
-			(divEqually)
+		renderChildren = horizontal combPStd
 			(repeat (renderTree (maxDepth-1) renderElement))
 		--renderChildren = horizontal (repeat force)
 
