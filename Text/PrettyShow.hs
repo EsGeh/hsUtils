@@ -17,7 +17,7 @@ TODO: example
 	TODO
 	Example: TODO
 
-if you have some basic render functions, you can use render function combinators to create new Rendermethods to create new ones:
+If you have some basic render functions, you can use render function combinators to create new Rendermethods to create new ones:
 
 \2. render function combinators
 
@@ -118,6 +118,7 @@ l ^=== r = lr 0.5 l r-}
 type Count = Int
 
 -- |given a distance return a partition of this distance into two distances
+-- this is basically the same as the type ('DivDistance' 2), but safer, because count is fix at compile time.
 type DivDistance2 = Int -> (Int,Int)
 {- |given a distance partition it into \"Count\" parts
 
