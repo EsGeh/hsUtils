@@ -2,16 +2,18 @@
 
 Introduction:
 
-This module proposes a way how to define RenderFunctions, for serializing data into a 2 dimensional representation, while giving you specific guarantees on the size the representation has.
-It does not provide any RenderFunctions at all, but ways to combine RenderFunctions into new ones (see chapter 2.). For making actually use of this module you need some /basic render methods/, e.g. "Text.TextBlock" defines some. You can then use this module to create more complex RenderFunctions out of existin ones.
+This module proposes a way how to define RenderMethods, for serializing data into a 2 dimensional representation, while giving you specific guarantees on the size the representation has.
+It does not define any RenderMethods at all, but ways to combine RenderMethods into new ones (see chapter 2.). For making actually use of this module you need some /basic render methods/, e.g. "Text.TextBlock" defines some. You can then use this module to create more complex RenderMethods out of existin ones.
 
 TODO: example
 
-\1. Render functions
+\1. Render methods
 
-* what is a render function? It calculates a representation from some data.
+* What is a render method? It calculates a representation from some data.
 
 * The representation should be an instance of the class 'Monoid2D', so it has some size (see 'm2size'). The size of the representation should not be arbitrary, so a 'RenderMethod' takes the desired size as parameter. (see 'RenderMethod' again)
+
+* Beware, 'RenderMethods' are packed into an algebraic type, so you have to \"run\" them, using 'runRenderMeth', before you can apply them.
 
 * So any 'RenderMethod' should fulfill the following law:
 	TODO
