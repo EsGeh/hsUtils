@@ -1,5 +1,12 @@
 {-| notes about "Text.PrettyShow"
 
+Introduction:
+
+This module proposes a way how to define RenderFunctions, for serializing data into a 2 dimensional representation, while giving you specific guarantees on the size the representation has.
+It does not provide any RenderFunctions at all, but ways to combine RenderFunctions into new ones (see chapter 2.). For making actually use of this module you need some /basic render methods/, e.g. "Text.TextBlock" defines some. You can then use this module to create more complex RenderFunctions out of existin ones.
+
+TODO: example
+
 \1. Render functions
 
 * what is a render function? It calculates a representation from some data.
@@ -34,8 +41,8 @@ module Text.PrettyShow (
 	RenderCombParam(..),
 	-- ** simple type synonyms
 	{-Area,-}Size,Pos,
-	-- * elementary render functions
-	renderNothing,
+	-- --* elementary render functions
+	--renderNothing,
 	-- * render function combinators
 	lr, ud,
 	vertical, horizontal,
@@ -87,17 +94,19 @@ pos = fst
 class Monoid2D a where
 	-- |concatenate horizontal ( "Block | Block")
 	--
-	-- law: (m2size l) |+| (m2size r) == m2size ( l ||| r)
+	-- see 'Text.PrettyShow.Properties.prop_m2Hori'
 	(|||) :: a -> a -> a 
 	-- |concatenate vertically ( "Block / Block")
 	--
-	-- law: (m2size l) |+| (m2size r) == m2size ( l === r)
+	-- see 'Text.PrettyShow.Properties.prop_m2Vert'
 	(===) :: a -> a -> a
 	m2size :: a -> Size Int
-	-- |law: m2size m2empty == (0,0)
+	-- |neutral element for (|||) and (===). should have size (0,0)
+	--
+	-- see 'Text.PrettyShow.Properties.prop_m2Empty'
 	m2empty :: a
 
--- |this type represents a method (let us call it a function) to create some data of type t, that fills a frame of some given "size"
+-- |this type represents a method (let us call it a function) to create some data of type t, that fills a frame of some given "size". /Usually 'dest' should be an instance of "Monoid2"/
 data RenderMethod src dest = RenderMeth {
 	runRenderMeth :: Size Int -> src -> dest
 }
@@ -110,8 +119,16 @@ type Count = Int
 
 -- |given a distance return a partition of this distance into two distances
 type DivDistance2 = Int -> (Int,Int)
--- |given a distance partition it into \"Count\" parts
--- precondition: \"Count\" > 0
+{- |given a distance partition it into \"Count\" parts
+
+be pieces = divFunc count dist, then:
+
+count > 0 && dist >= 0 =>
+
+* sum div == dist
+
+* part <- pieces => part >= 0 && part <= dist
+-}
 type DivDistance = Count -> Int -> [Int]
 
 -- |takes a piece from a distance given

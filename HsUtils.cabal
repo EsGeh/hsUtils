@@ -44,7 +44,7 @@ cabal-version:       >=1.8
 
 library
   -- Modules exported by the library.
-  exposed-modules:     Util.CountingList, Util.Info, Util.Card.Unary, Util.Card.Card, Util.Vector2D, Math, Math.Tree, Math.Matrix, Math.MatrixTS, Text, Text.PrettyShow, Text.TextBlock, Text.TextBlock.RenderMethods
+  exposed-modules:     Util.CountingList, Util.Info, Util.Card.Unary, Util.Card.Card, Util.Vector2D, Math, Math.Tree, Math.Matrix, Math.MatrixTS, Text, Text.PrettyShow, Text.TextBlock, Text.TextBlock.RenderMethods, Text.PrettyShow.Properties
   
   -- Modules included in this library but not exported.
   other-modules:       Text.TextBlockInternal
@@ -52,3 +52,8 @@ library
   -- Other library packages from which modules are imported.
   build-depends:       array -any, base >= 4.5.0.0, syb >=0.3.0.0, mtl >=2.1.0.0, QuickCheck >= 2.4.0.0
   
+test-suite tests
+  --Hs-source-dirs:
+  Type: exitcode-stdio-1.0
+  Main-is: Tests.hs
+  Build-depends: array -any, base >= 4.5.0.0, syb >=0.3.0.0, mtl >=2.1.0.0, QuickCheck >= 2.4.0.0

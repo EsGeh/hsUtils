@@ -1,6 +1,16 @@
+module Text.PrettyShow.Properties(
+	prop_m2Hori, prop_m2Vert, prop_m2Empty,
+	prop_div,
+	prop_div2,
+	prop_divEqually, prop_divAllConstThenCut,
+	prop_div2FromRatio, prop_div2ConstAndRest, prop_div2RestAndConst,
+) where
 import Text.PrettyShow
 import Text.TextBlock
+import Text.TextBlock.RenderMethods
 import Test.QuickCheck
+
+import Util.Vector2D
 
 text1 = "Hallo\nWelt\nDu\nIdiot"
 text2 = "Bli\nBla\nBlubb"
@@ -25,7 +35,24 @@ test_lr = let render = lr (div2ConstAndRest 3) (forceWE ".." "..") (forceWE ".."
 	in
 		(runRenderMeth render) (20,3) (textBlock text1,textBlock text2)
 
-prop_divDist2 divFunc dist = (divFunc dist >= 0) && (divFunc dist <= dist)
+-- |law: (m2size l) |+| (m2size r) == m2size ( l ||| r)
+prop_m2Hori l r = (m2size l) |+| (m2size r) == m2size (l ||| r)
+-- |law: (m2size l) |+| (m2size r) == m2size ( l === r)
+prop_m2Vert u d = (m2size u) |+| (m2size d) == m2size (u === d)
+
+-- |law: m2empty should be the neutral element
+prop_m2Empty a =
+	m2size (a ||| m2empty) == m2size a &&
+	m2size (a === m2empty) == m2size a
+
+
+prop_div2FromRatio :: Float -> Int -> Bool
+prop_div2FromRatio ratio = prop_div2 (div2FromRatio ratio)
+prop_div2ConstAndRest const = prop_div2 (div2ConstAndRest const)
+prop_div2RestAndConst const = prop_div2  (div2RestAndConst const)
+
+
+prop_div2 divFunc = prop_div (\count dist -> (\(l,r)-> [l,r]) $ divFunc dist) 2
 
 {-prop_divDist divFunc count dist = and $ [
 	-- number of parts should be equal to count-1
