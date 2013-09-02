@@ -37,6 +37,7 @@ module Text.PrettyShow (
 	-- ** basic
 	Monoid2D(..),
 	RenderMethod(..),
+	FillFunction,
 	-- ** distance partition functions
 	DivDistance2, DivDistance,
 	-- ** bundle of settings to increase lazyness
@@ -46,8 +47,11 @@ module Text.PrettyShow (
 	-- --* elementary render functions
 	--renderNothing,
 	-- * render function combinators
+	-- ** render 2 things
 	lr, ud,
+	-- ** render many things
 	vertical, horizontal,
+	-- ** render many things in a specific way
 	horizontalWith,
 	-- * space division functions
 	div2FromRatio,div2ConstAndRest,div2RestAndConst,
@@ -207,18 +211,23 @@ horizontalConstWidth elementWidth renderList = case renderList of
 			[] -> m2empty
 			(src: restSrcList) = -}
  
+-- | given a tuple of two things (srcL,srcR) this method applies the first RenderMethod to the left one, and the 
+-- second to the right one, while dividing the width depending on the divF function,
+-- then concatenates both results horizontally using ('|||')
 lr :: (Monoid2D repr) => DivDistance2 -> RenderMethod srcL repr -> RenderMethod srcR repr -> RenderMethod (srcL,srcR) repr
 lr divF l r = combine2 sizeDiv (|||) l r
 	where
 		sizeDiv (w,h) = ((wL, h), (wR, h))
 			where (wL,wR) = divF w
 	
+-- | given a tuple of two things (srcL,srcR) this method applies the first RenderMethod to the left one, and the 
+-- second to the right one, while dividing the height depending on the divF function
+-- then concatenates both results horizontally using ('===')
 ud :: (Monoid2D repr) => DivDistance2 -> RenderMethod srcU repr -> RenderMethod srcD repr -> RenderMethod (srcU,srcD) repr
 ud divF l r = combine2 sizeDiv (===) l r
 	where
 		sizeDiv (w,h) = ((w, hU), (w, hD))
 			where (hU,hD) = divF w
-
 
 type CombineRepr2 repr = repr -> repr -> repr
 type CombineMethods2 repr srcL srcR = RenderMethod srcL repr -> RenderMethod srcR repr -> RenderMethod (srcL,srcR) repr
@@ -241,6 +250,27 @@ horizontalWith middle = horizontal_ concWithGap
 -}
 
 printVal str x = traceShow (str ++ show x) x
+
+{-
+type DivDistance2Types l r = [Either l r] -> Int -> [Int]
+
+divGrowingGaps :: Int -> DivDistance -> DivDistance2Types
+divGrowingGaps constElSize divF inputList width = if firstRight <= constElSize then 
+	where
+		(firstRight : restRight) = divF countRight width
+-}
+{-
+divGrowingGaps constElSize divF inputList width = if restSize <= 0
+	then intersect (divF countRight width) (repeat 0)
+	else intersect (divF countRight widthElements) (divFLeft countLeft restSize)
+	
+	)
+	where
+		countRight = length $ filter isRight inputList
+		countLeft = length $ filter isLeft inputList
+		widthElements = (length inputList) * constElSize
+		restSize = width - widthElements
+		-}
 
 horizontalWith :: (Monoid2D repr) => FillFunction repr -> RenderCombParam repr -> [RenderMethod src repr] -> RenderMethod [src] repr
 horizontalWith middleF renderCombP renderList = RenderMeth $ renderM
@@ -271,6 +301,12 @@ divF' count w = intersectedDistances
 		intersectedDistances = intersperse 1 distances
 		-}
 
+-- | this method applies the list of 'RenderMethod's to a list of things ([src])
+-- while dividing the width depending on the divF function,
+-- then concatenates the results horizontally using (|||)
+-- the number of representations is
+--
+-- > min (length renderList) (length srcList)
 horizontal :: (Monoid2D repr) => RenderCombParam repr -> [RenderMethod src repr] -> RenderMethod [src] repr
 horizontal RenderCombP{fillF=fillF, divF= divF} renderList = combine fillF divF' (|||) renderList
 	 where
