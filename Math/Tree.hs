@@ -88,10 +88,14 @@ testTree3 = node 0 [ leaf 1 , node 2 [leaf 1.1, leaf 1.2, leaf 1.3 ], leaf 3 ]
 renderTree :: Depth -> RenderMethod t TextBlock -> RenderMethod (Tree t) TextBlock
 renderTree maxDepth renderElement = if maxDepth <= 0
 	then renderNothing
-	else RenderMeth $ \size (Node params children) ->
-		(runRenderMeth renderThis) size (params,children)
+	else RenderMeth {
+		runRenderMeth = \size (Node params children) -> (runRenderMeth renderThis) size (params,children),
+		minSize = \(Node params children) -> (minSize renderThis) (params,children) }
 	where
-		renderNothing = RenderMeth $ \size val -> m2empty
+		renderNothing = RenderMeth {
+			runRenderMeth = \size val -> m2empty,
+			minSize = \val -> 0
+		}
 		--renderThis :: RenderMethod (t, [Tree t]) TextBlock
 		renderThis = ud
 			(div2ConstAndRest 1)

@@ -67,6 +67,7 @@ import Test.QuickCheck
 import Data.List
 import Data.Maybe
 import Data.Monoid
+import Control.Applicative
 import Data.Ratio
 import Data.Tuple(swap)
 import Prelude hiding (lines)
@@ -114,7 +115,8 @@ class Monoid2D a where
 
 -- |this type represents a method (let us call it a function) to create some data of type t, that fills a frame of some given "size". /Usually 'dest' should be an instance of "Monoid2"/
 data RenderMethod src dest = RenderMeth {
-	runRenderMeth :: Size Int -> src -> dest
+	runRenderMeth :: Size Int -> src -> dest,
+	minSize :: src -> Int
 }
 
 -- |if there are 2 functions that create a 'Monoid2D' of the same type, the results can be combined generically
@@ -233,14 +235,15 @@ type CombineRepr2 repr = repr -> repr -> repr
 type CombineMethods2 repr srcL srcR = RenderMethod srcL repr -> RenderMethod srcR repr -> RenderMethod (srcL,srcR) repr
 
 combine2 :: (Monoid2D repr) => (Size Int -> (Size Int,Size Int)) -> CombineRepr2 repr -> RenderMethod srcL repr -> RenderMethod srcR repr -> RenderMethod (srcL,srcR) repr
-combine2 sizeF combineRepr methL methR = let
-	(lf,rf) = (runRenderMeth methL, runRenderMeth methR)
-	in
-	RenderMeth $ \size (lsrc,rsrc) ->
-		let
-			(sizeL,sizeR) = sizeF size
-		in
-			lf sizeL lsrc `combineRepr` rf sizeR rsrc
+combine2 sizeF combineRepr methL methR = RenderMeth{
+	runRenderMeth = newRenderMeth,
+	minSize = \(valL,valR) -> ((minSize methL) valL + (minSize methR) valR ) }
+	where
+		(lf,rf) = (runRenderMeth methL, runRenderMeth methR)
+		newRenderMeth = \size (lsrc,rsrc) ->
+			let (sizeL,sizeR) = sizeF size
+			in
+				lf sizeL lsrc `combineRepr` rf sizeR rsrc
 
 {-horizontalWith :: (Monoid2D repr) => (Size Int -> repr) -> [RenderMethod src repr] -> RenderMethod [src] repr
 horizontalWith middle = horizontal_ concWithGap
@@ -273,21 +276,29 @@ divGrowingGaps constElSize divF inputList width = if restSize <= 0
 		-}
 
 horizontalWith :: (Monoid2D repr) => FillFunction repr -> RenderCombParam repr -> [RenderMethod src repr] -> RenderMethod [src] repr
-horizontalWith middleF renderCombP renderList = RenderMeth $ renderM
+horizontalWith middleF renderCombP renderList = RenderMeth {
+	runRenderMeth = renderF,
+	minSize = newMinSize }
 	where
-		--renderM :: Size Int -> [src] -> repr
-		renderM size listSrc = (runRenderMeth newRenderMeth) size newListSrc
-			where
-				--newListSrc :: [Either () src]
-				newListSrc = intersperse (Left ()) (map Right listSrc)
-		--newRenderMeth :: RenderMethod [Either () src] repr
-		newRenderMeth = horizontal renderCombP{ divF=(intersectedDistances (divF renderCombP) 1) } (newRenderList renderList)
+		--renderF :: Size Int -> [src] -> repr
+		renderF size listSrc = (runRenderMeth renderMethWithSeperators) size (addSeperators listSrc)
+		newMinSize listSrc = (minSize renderMethWithSeperators) (addSeperators listSrc) --sum $ minSize <$> renderList <*> valList
+
+		--addSeperators :: [src] -> [Either () src]
+		addSeperators listSrc = intersperse (Left ()) (map Right listSrc)
+
+		--renderMethWithSeperators :: RenderMethod [Either () src] repr
+		renderMethWithSeperators = horizontal renderCombP{ divF=(intersectedDistances (divF renderCombP) 1) } (newRenderList renderList)
 		--newRenderList :: [RenderMethod src repr] -> [RenderMethod (Either () src) repr]
 		newRenderList remainingMeths = case remainingMeths of
 			[] -> []
-			(fstMeth:otherMeths) -> (RenderMeth $ \size src -> case src of
-				Left _ -> middleF size
-				Right val -> (runRenderMeth fstMeth) size val) : newRenderList otherMeths
+			(fstMeth:otherMeths) -> (RenderMeth { runRenderMeth = firstRenderM, minSize = firstMinSize }) : newRenderList otherMeths where
+				firstRenderM = \size src -> case src of
+					Left _ -> middleF size
+					Right val -> (runRenderMeth fstMeth) size val 
+				firstMinSize = \src -> case src of
+					Left _ -> 0
+					Right val -> (minSize fstMeth) val
 
 intersectedDistances divF separatorLength count dist = intersperse separatorLength distances
 	where
@@ -328,28 +339,36 @@ type FillFunction repr = Size Int -> repr
 --rndrCombPStd = RenderCombP{ divF = divEqually, fillF
 
 combine :: (Monoid2D repr) => FillFunction repr -> (Count -> Size Int -> [Size Int]) -> (repr -> repr -> repr) -> [RenderMethod src repr] -> RenderMethod [src] repr
-combine fillF divF conc renderList = RenderMeth $ \size srcList ->
-	let
-		count = {-printVal "combine count: " $-} saveMinimumLength renderList srcList
-	in
-		case count of
-			0 -> fillF size
-			_ -> (runRenderMeth $ combine_ (divF count size) conc renderList) size srcList
-	where
-		saveMinimumLength l r = length $ zip l r
+combine fillF divF conc renderList = RenderMeth { runRenderMeth= newRenderMeth, minSize = \valList -> sum $ minSize <$> renderList <*> valList } where
+	newRenderMeth = \size srcList ->
+		let
+			count = {-printVal "combine count: " $-} saveMinimumLength renderList srcList
+		in
+			case count of
+				0 -> fillF size
+				_ -> (runRenderMeth $ combine_ (divF count size) conc renderList) size srcList
+		where
+			saveMinimumLength l r = length $ zip l r
 
 -- precond: listSize = maximum (length renderList, length srcList)
 combine_ :: (Monoid2D repr) => [Size Int] -> (repr -> repr -> repr) -> [RenderMethod src repr] -> RenderMethod [src] repr
 combine_ listSize conc renderList = {-trace "calling combine_" $-} if count == 0 then (error "nothing to print") else
 	case renderList of
-		(fstRender:restRender) -> RenderMeth $ \size srcList -> case srcList of
-			[] -> error "to few sources"
-			(fstSrc:restSrc) -> if count == 1
-				then ((runRenderMeth $ fstRender) (head listSize) fstSrc)
-				else ((runRenderMeth $ fstRender) (head listSize) fstSrc) `conc`
-					((runRenderMeth $ combine_ (tail listSize) conc restRender) size restSrc)
+		(fstRender:restRender) -> RenderMeth{ runRenderMeth=newRenderMeth, minSize = newMinSize } where
+			newRenderMeth = \size srcList -> case srcList of
+				[] -> error "to few sources"
+				(fstSrc:restSrc) -> if count == 1
+					then ((runRenderMeth $ fstRender) (head listSize) fstSrc)
+					else ((runRenderMeth $ fstRender) (head listSize) fstSrc) `conc`
+						((runRenderMeth $ combine_ (tail listSize) conc restRender) size restSrc)
+			newMinSize = \srcList -> case srcList of
+				[] -> error "to few sources"
+				(fstSrc:restSrc) -> if count == 1
+					then ((minSize $ fstRender) fstSrc)
+					else ((minSize $ fstRender) fstSrc) +
+						((minSize $ combine_ (tail listSize) conc restRender) restSrc)
 	where count = {-printVal "count: " $-} length listSize
 
 renderNothing :: (Monoid2D repr) => RenderMethod src repr
-renderNothing = RenderMeth $ \size src -> m2empty
+renderNothing = RenderMeth { runRenderMeth = \size src -> m2empty, minSize = \src -> 0 }
 

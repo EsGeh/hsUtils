@@ -74,7 +74,10 @@ instance (Show t) => Show (Matrix t) where
 
 
 renderMatr :: T.RenderMethod t T.TextBlock -> T.RenderMethod (Matrix t) T.TextBlock
-renderMatr renderElement = RenderMeth $ \size matr -> (runRenderMeth $ renderListCol) size (listCol matr)
+renderMatr renderElement = RenderMeth{
+	 runRenderMeth = \size matr -> (runRenderMeth $ renderListCol) size . listCol $ matr,
+	 minSize = \matr -> (minSize $ renderListCol) . listCol $ matr }
+--renderMatr renderElement = RenderMeth $ \size matr -> (runRenderMeth $ renderListCol) size (listCol matr)
 	where
 		--renderListCol :: (Show t) => RenderMethod [[t]] TextBlock
 		renderListCol = horizontalWith (filledBlock "|") combPStd  (repeat $ vertical combPStd{ divF = (T.divAllConstThenCut 1) } (repeat renderElement))
