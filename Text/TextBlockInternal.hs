@@ -26,8 +26,8 @@ type Line = String
 ---------------------------------------------------------------------------
 -- functions on lists of lines
 ---------------------------------------------------------------------------
-linesHomWidth :: [String] -> [String]
-linesHomWidth lines = linesSetWidth (maximum $ map length lines) lines
+linesHomWidth :: String -> [String] -> [String]
+linesHomWidth fillPattern lines = linesSetWidth fillPattern (maximum $ map length lines) lines
 
  -- experimental!!
 linesAutoNewLineCareful :: Size Int -> Ellipsis -> [Line] -> [Line]
@@ -43,9 +43,9 @@ linesAutoNewLineCareful size ell = divNice . join . map words -- . Prelude.lines
 				else return remaining
 
 -- experimental!! 
-linesAutoNewLineWE :: Size Int -> Ellipsis -> [Line] -> [Line]
-linesAutoNewLineWE size ell =
-	linesSetSize size . -- if the result is too small, force it to have the given size
+linesAutoNewLineWE :: String -> Size Int -> Ellipsis -> [Line] -> [Line]
+linesAutoNewLineWE fillPattern size ell =
+	linesSetSize fillPattern size . -- if the result is too small, force it to have the given size
 	divNice ell size . -- divide the whole text into the size
 	linesConcAll -- concatenate all lines into one string
 
@@ -99,14 +99,14 @@ prop_appendEllipsisToLine width line ell =
 
 -- the suffix "WE" is for "with ellipsis"
 
-linesSetSize size = linesSetWidth (vecX size) . linesSetHeight (vecY size) 
-linesSetSizeWE ellAtLineEnding ellAtTextEnding size = linesSetWidthWE ellAtLineEnding (vecX size) . linesSetHeightWE ellAtTextEnding (vecY size) 
+linesSetSize fillPattern size = linesSetWidth fillPattern (vecX size) . linesSetHeight (vecY size) 
+linesSetSizeWE fillPattern ellAtLineEnding ellAtTextEnding size = linesSetWidthWE fillPattern ellAtLineEnding (vecX size) . linesSetHeightWE ellAtTextEnding (vecY size) 
 
 
-linesSetWidthWE ell width = map manipulateLine
+linesSetWidthWE fillPattern ell width = map manipulateLine
 	where
 		manipulateLine line = if length line <= width
-			then take width $ line ++ (repeat ' ')
+			then take width $ line ++ concat (repeat fillPattern)
 			else take width $ (take (width-length ell) line) ++ ell
 
 linesSetHeightWE ell height lines =
@@ -118,10 +118,10 @@ linesSetHeight :: Int -> [String] -> [String]
 linesSetHeight height lines' = take height $ lines' ++ (repeat "")
 
 
-linesSetWidth :: Int -> [String] -> [String]
-linesSetWidth width = map fillWithSpaces
+linesSetWidth :: String -> Int -> [String] -> [String]
+linesSetWidth fillPattern width = map fillWithPattern
 	where
-		fillWithSpaces line = take width $ line ++  (repeat ' ')
+		fillWithPattern line = take width $ line ++ concat (repeat fillPattern)
 
 
 

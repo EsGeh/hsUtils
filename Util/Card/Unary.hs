@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, UndecidableInstances, FlexibleInstances, DeriveDataTypeable #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, UndecidableInstances, FlexibleInstances, DeriveDataTypeable, Rank2Types, ScopedTypeVariables #-}
 --{-# OPTIONS_GHC -fglasgow-exts #-}
 module Util.Card.Unary where
 import Util.Card.Card as Card
@@ -37,6 +37,10 @@ mul = undefined
 
 succ' :: (Card n)=>  n -> Succ n
 succ' = Succ
+
+toCard :: Int -> (forall n . Card n => n -> w) -> w
+toCard 0 k = k (undefined :: Zero)
+toCard n k = toCard (n-1) (\(_ :: n) -> k (undefined :: Succ n))
 
 type N0 = Zero
 type N1 = Succ N0

@@ -39,16 +39,17 @@ import qualified Prelude as P
 -- |represents text in a way that also encodes how it is divided into lines
 -- any text t is guaranteed to fit into the rectangle of 'msize' t
 data TextBlock = TextBlock {
+	fillPattern :: String,
 	lines :: [String]
 }
 -- |this enables construction of 'RenderMethod's that create TextBlocks (see module 'Text.PrettyShow')
 instance Monoid2D TextBlock where
-	l ||| r = lrText l r
+	l ||| r = lrText " "l r
 	u === d = udText u d
 	m2size text = case (lines text) of
 		[] -> (0,0)
 		list -> (length (head list), length list)
-	m2empty = textBlock ""
+	m2empty = textBlock " " ""
 instance Show TextBlock where
 	show = fromTextBlock -- (TextBlock lines) = fromTextBlock lines
 
@@ -63,9 +64,12 @@ testRenderMeth3 = lr (horiSpaceDiv 0.5) justBlock force -}
 combPStd = RenderCombP{ divF=divEqually, fillF= filledBlock " " }
 
 
+{-
 -- |fills a block using 'str' as a tile. The result should have the 'size' given as second parameter
 filledBlock :: String -> Size Int -> TextBlock
-filledBlock str (width,height) = TextBlock $ take height $ map (take width) $ repeat (concat $ repeat str)
+filledBlock str (width,height) = textBlock str ""
+	--TextBlock $ take height $ map (take width) $ repeat (concat $ repeat str)
+-}
 
 
 ---------------------------------------------------------------------------
@@ -81,43 +85,51 @@ filledBlock str (width,height) = TextBlock $ take height $ map (take width) $ re
 		textBlockLines = P.lines $ show $ textBlock text-}
 prop_textBlockTrunc text size = (vecY size >=0 && vecX size >=0) `implies`
 	prop_textBlock_width text && (m2size $ textBlockTrunc size text) == size-}
-prop_m2size text = 
-	(m2size $ textBlock text) == ((saveMax . map length . P.lines) text, (length . P.lines) text)
+prop_m2size fillPattern text = 
+	(m2size $ textBlock fillPattern text) == ((saveMax . map length . P.lines) text, (length . P.lines) text)
 	where
 		saveMax list = case list of
 			[] -> 0
 			_ -> maximum list
 
 -- |divide a string onto lines using the newline character (\'\n\') as seperator
-textBlock = normalize . TextBlock . P.lines
+textBlock fillPattern = normalize . TextBlock fillPattern . P.lines
 -- |same as 'textBlockTrunc', but also inserts ellipsis for a line that is too long, or in the last line, if the result would be too high
-textBlockTruncWE ellAtLineEnding ellAtTextEnding size str = textMap (linesSetSizeWE ellAtLineEnding ellAtTextEnding size) $ textBlock str
+textBlockTruncWE ellAtLineEnding ellAtTextEnding size str = textBlockTruncWE' " "
+textBlockTruncWE' fillPattern ellAtLineEnding ellAtTextEnding size str = textMap (linesSetSizeWE fillPattern ellAtLineEnding ellAtTextEnding size) $ textBlock fillPattern str
 -- |same as 'textBlock', but cuts the result to make it fit into the 'size'
-textBlockTrunc size str = textMap (linesSetSize size) $ textBlock str
+textBlockTrunc size str = textBlockTrunc' " "
+textBlockTrunc' fillPattern size str = textMap (linesSetSize fillPattern size) $ textBlock fillPattern str
 
 -- |behaves as follows: first concatenates the 'str' in a way as if the whole text has been written into one line (todo: example). Then divide the result to make it fit into the given 'size', splitting the text if a line is full.
-textBlockAutoNewLineWE size ell str = textMap (linesAutoNewLineWE size ell ) $ textBlock str
+textBlockAutoNewLineWE = textBlockAutoNewLineWE' " "
+textBlockAutoNewLineWE' fillPattern size ell str = textMap (linesAutoNewLineWE fillPattern size ell ) $ textBlock fillPattern str
 --textBlock size str = autoNewLine size 
-fromTextBlock (TextBlock lines) = unlines $ linesHomWidth lines
+fromTextBlock (TextBlock{ lines=lines }) = unlines lines
+	--unlines $ linesHomWidth lines
 
 
-lrText :: TextBlock -> TextBlock -> TextBlock
-lrText (TextBlock lLines) (TextBlock rLines) = TextBlock $
-	zipWith (++) (linesHomWidth lSameHeight) rSameHeight
+lrText :: String -> TextBlock -> TextBlock -> TextBlock
+lrText fillPattern l r = TextBlock { fillPattern= fillPattern,
+	lines = zipWith (++) ({-linesHomWidth-} lSameHeight) rSameHeight }
+	where
+		lSameHeight = linesSetHeight maxHeight (lines l)
+		rSameHeight = linesSetHeight maxHeight $ lines r
+		maxHeight = max (length $ lines l) (length $ lines r)
+{-lrText (TextBlock{ lines=lLines }) (TextBlock{ lines=rLines }) = TextBlock $
+	zipWith (++) ({-linesHomWidth-} lSameHeight) rSameHeight
 	where
 		lSameHeight = linesSetHeight maxHeight lLines
 		rSameHeight = linesSetHeight maxHeight rLines
-		maxHeight = max (length lLines) (length rLines)
+		maxHeight = max (length lLines) (length rLines)-}
 udText :: TextBlock -> TextBlock -> TextBlock
-udText (TextBlock lLines) (TextBlock rLines) = TextBlock $ linesHomWidth $
+udText = udText' " "
+udText' :: String -> TextBlock -> TextBlock -> TextBlock
+udText' fillPattern (TextBlock lLines) (TextBlock rLines) = TextBlock $ linesHomWidth fillPattern $
 	lLines ++ rLines 
 
-normalize = textMap linesHomWidth
+normalize textBlock = textMap (linesHomWidth (fillPattern textBlock))
 textMap f (TextBlock lines) = TextBlock $ f lines
-
-
-
-
 
 {-forceWithEllipsis :: String -> Ellipsis -> Block TextBlock
 forceWithEllipsis str ell = Block $ \size -> (textBlockTrunc (size-length ell) str)-}
